@@ -220,6 +220,113 @@ window.fetchExchangeRates = async function (ctx) {
 };
 
 /**
+ * Load S&P 500 weekly historical data from Firebase (global, shared across all users).
+ * Seeds Firebase on first run using the hardcoded fallback in spData.js.
+ * Fetches fresh weekly candles from Finnhub if data is older than 7 days.
+ * Updates window.spyHistoricalData so chartBuilder.js picks it up, then
+ * calls ctx.setSpDataVersion to trigger a React re-render.
+ *
+ * Firebase path: artifacts/{projectId}/global_market_data/sp500_weekly
+ * Document shape: { history: { "YYYY-MM-DD": {open,high,low,close}, ... }, lastUpdated: ISO string }
+ *
+ * @param {Object} ctx - { dbInstance, user, apiKey, setSpDataVersion }
+ */
+window.loadSp500WeeklyData = async function (ctx) {
+    var db = ctx.dbInstance;
+    var user = ctx.user;
+    var apiKey = ctx.apiKey;
+    var setSpDataVersion = ctx.setSpDataVersion;
+
+    if (!db || !user) return;
+
+    try {
+        var appId = window.__app_id || 'default-app-id';
+        var docRef = db.collection('artifacts').doc(appId)
+            .collection('global_market_data').doc('sp500_weekly');
+
+        var snap = await docRef.get();
+        var existingHistory = {};
+        var lastUpdated = null;
+        var docExists = snap.exists;
+
+        if (docExists) {
+            var docData = snap.data();
+            existingHistory = docData.history || {};
+            lastUpdated = docData.lastUpdated ? new Date(docData.lastUpdated) : null;
+        }
+
+        // Merge: hardcoded fallback first, then Firebase data on top (Firebase wins on overlap)
+        var hardcoded = window.spyHistoricalData || {};
+        var mergedHistory = Object.assign({}, hardcoded, existingHistory);
+
+        // First-time setup: seed Firebase with the hardcoded data so other users
+        // benefit immediately, even before the Finnhub fetch runs.
+        if (!docExists && Object.keys(hardcoded).length > 0) {
+            try {
+                await docRef.set({ history: hardcoded, lastUpdated: new Date().toISOString() });
+                lastUpdated = new Date();
+                console.log('Seeded SP500 weekly data to Firebase (' + Object.keys(hardcoded).length + ' weeks)');
+            } catch (e) {
+                console.error('Failed to seed SP500 weekly data to Firebase', e);
+            }
+        }
+
+        // Weekly update: fetch fresh candles from Finnhub when data is stale (> 7 days old)
+        var needsUpdate = !lastUpdated || (Date.now() - lastUpdated.getTime() > 7 * 24 * 60 * 60 * 1000);
+
+        if (needsUpdate && apiKey) {
+            var toTs   = Math.floor(Date.now() / 1000);
+            var fromTs = Math.floor((Date.now() - 2 * 365 * 24 * 60 * 60 * 1000) / 1000); // 2 years back
+
+            try {
+                var res = await fetch(
+                    'https://finnhub.io/api/v1/stock/candle?symbol=SPY&resolution=W&from=' +
+                    fromTs + '&to=' + toTs + '&token=' + apiKey
+                );
+                if (res.ok) {
+                    var candles = await res.json();
+                    if (candles && candles.s === 'ok' && candles.t && candles.t.length > 0) {
+                        var newEntries = {};
+                        candles.t.forEach(function (ts, idx) {
+                            // Normalize the candle timestamp to the Sunday that starts the trading week
+                            // (matches the key format used in spData.js)
+                            var d = new Date(ts * 1000);
+                            var dayOfWeek = d.getUTCDay(); // 0=Sun, 1=Mon … 6=Sat
+                            var sundayMs  = d.getTime() - dayOfWeek * 24 * 60 * 60 * 1000;
+                            var dateKey   = new Date(sundayMs).toISOString().split('T')[0];
+                            newEntries[dateKey] = {
+                                open:  candles.o[idx],
+                                high:  candles.h[idx],
+                                low:   candles.l[idx],
+                                close: candles.c[idx]
+                            };
+                        });
+
+                        mergedHistory = Object.assign({}, mergedHistory, newEntries);
+
+                        await docRef.set(
+                            { history: mergedHistory, lastUpdated: new Date().toISOString() },
+                            { merge: true }
+                        );
+                        console.log('SP500 weekly data refreshed in Firebase (+' + Object.keys(newEntries).length + ' weeks)');
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch/update SP500 weekly data from Finnhub', e);
+            }
+        }
+
+        // Overwrite the global so chartBuilder picks up the richer Firebase data,
+        // then bump version to force a chart re-render.
+        window.spyHistoricalData = mergedHistory;
+        if (setSpDataVersion) setSpDataVersion(function (prev) { return prev + 1; });
+
+    } catch (e) {
+        console.error('Failed to load SP500 weekly data from Firebase', e);
+    }
+};
+
+/**
  * Fetch realtime stock prices from Finnhub API + S&P 500 data.
  * @param {Object} ctx - { positions, apiKey, user, dbInstance, setLoading, setApiError, setSpyData, saveToDb, getPositionStats }
  */
