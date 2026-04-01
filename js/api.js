@@ -218,6 +218,7 @@ window.setupCloudListener = function (ctx) {
                     if (data.investmentRate !== undefined) ctx.setInvestmentRate(data.investmentRate);
                     if (data.cashDeposits) ctx.setCashDeposits(data.cashDeposits);
                     if (data.apiKey !== undefined) { ctx.setApiKey(data.apiKey); ctx.setTempApiKey(data.apiKey); }
+                    if (data.lastManualUpdate && ctx.setLastManualUpdate) ctx.setLastManualUpdate(data.lastManualUpdate);
                 } else {
                     docRef.set({ positions: ctx.initialPositions, cash: 5000, cashRate: null, apiKey: '', initialInvestment: null, investmentRate: null });
                 }
@@ -289,9 +290,16 @@ window.savePortfolioToDb = async function (ctx, data) {
         });
 
         // Encrypt sensitive data before saving to Firestore
+        var lmu = ctx.lastManualUpdate;
+        if (data.manualUpdate) {
+            lmu = Date.now();
+            if (ctx.setLastManualUpdate) ctx.setLastManualUpdate(lmu);
+        }
+
         var saveData = {
             positions: cleanPositions, cash: c, apiKey: a,
-            initialInvestment: i, cashRate: cr, investmentRate: ir, cashDeposits: deps
+            initialInvestment: i, cashRate: cr, investmentRate: ir, cashDeposits: deps,
+            lastManualUpdate: lmu || null
         };
         var encryptedData = await window.encryptPortfolioData(ctx.user.uid, saveData);
         await docRef.set(encryptedData, { merge: false });
@@ -578,7 +586,7 @@ window.fetchRealtimePrices = async function (ctx) {
             if (errorOccurred) {
                 ctx.setApiError("API access error. Key is invalid or request limit exceeded.");
             } else if (hasChanges) {
-                ctx.saveToDb(finalPositions, undefined, undefined, undefined, undefined, undefined);
+                ctx.saveToDb(finalPositions, undefined, undefined, undefined, undefined, undefined, undefined, { manualUpdate: false });
             }
         } catch (error) { console.error("Error fetching data:", error); }
     }

@@ -357,6 +357,7 @@
             const [showSp500, setShowSp500] = useState(true);
             const [showTaxSection, setShowTaxSection] = useState(false);
             const [showValues, setShowValues] = useState(false);
+            const [lastManualUpdate, setLastManualUpdate] = useState(null);
 
             // Sorting state for positions table
             const [sortColumn, setSortColumn] = useState('weight'); // default: sort by weight (biggest first)
@@ -390,18 +391,18 @@
                     user, dbInstance, normalizeSymbol, setPositions, setCash,
                     setCashRate, setInitialInvestment, setInvestmentRate,
                     setCashDeposits, setApiKey, setTempApiKey,
-                    setCloudError, setDbReady, initialPositions
+                    setCloudError, setDbReady, initialPositions, setLastManualUpdate
                 });
                 return () => unsub();
             }, [user, dbInstance]);
 
             // SaveToDb wrapper — delegates to api.js
-            const saveToDb = (newPositions, newCash, newApiKey, newInitInv, newCashRate, newInvRate, newDeposits) => {
+            const saveToDb = (newPositions, newCash, newApiKey, newInitInv, newCashRate, newInvRate, newDeposits, { manualUpdate = true } = {}) => {
                 window.savePortfolioToDb(
-                    { positions, cash, apiKey, initialInvestment, cashRate, investmentRate, cashDeposits,
+                    { positions, cash, apiKey, initialInvestment, cashRate, investmentRate, cashDeposits, lastManualUpdate,
                       user, dbInstance, setPositions, setCash, setApiKey, setInitialInvestment,
-                      setCashRate, setInvestmentRate, setCashDeposits },
-                    { newPositions, newCash, newApiKey, newInitInv, newCashRate, newInvRate, newDeposits }
+                      setCashRate, setInvestmentRate, setCashDeposits, setLastManualUpdate },
+                    { newPositions, newCash, newApiKey, newInitInv, newCashRate, newInvRate, newDeposits, manualUpdate }
                 );
             };
 
@@ -473,7 +474,6 @@
             };
 
             const formatPercent = (value, decimals = 2) => {
-                if (!showValues) return '••%';
                 return `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%`;
             };
 
@@ -748,7 +748,7 @@
                                             className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-portfolio transition-colors"
                                         />
                                         <button
-                                            onClick={() => saveToDb(undefined, undefined, tempApiKey, undefined, undefined, undefined)}
+                                            onClick={() => saveToDb(undefined, undefined, tempApiKey, undefined, undefined, undefined, undefined, { manualUpdate: false })}
                                             className="bg-portfolio hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
                                         >
                                             שמור והתחבר
@@ -1230,7 +1230,12 @@
                                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                     <div className="flex items-center gap-3">
                                         <div className="w-1.5 h-6 bg-portfolio rounded-full"></div>
-                                        <span className="font-semibold text-gray-200">תיק השקעות</span>
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-gray-200">תיק השקעות</span>
+                                            {lastManualUpdate && (
+                                                <span className="text-[10px] text-gray-500">עודכן: {new Date(lastManualUpdate).toLocaleDateString('he-IL')} {new Date(lastManualUpdate).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6">
                                         <div className="flex flex-col">
@@ -1258,7 +1263,7 @@
                                             </span>
                                             <div className={`mt-1 flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold ${portfolioProfitPercentDisplay >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                                 {portfolioProfitPercentDisplay >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
-                                                {showValues ? Math.abs(portfolioProfitPercentDisplay).toFixed(2) + '%' : '••%'}
+                                                {Math.abs(portfolioProfitPercentDisplay).toFixed(2) + '%'}
                                             </div>
                                         </div>
                                     </div>
@@ -1383,7 +1388,7 @@
                                         <span className="text-base sm:text-lg font-bold text-white">{currentSp500Index ? currentSp500Index.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
                                         <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-bold ${sp500PercentDisplay >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                             {sp500PercentDisplay >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
-                                            {showValues ? Math.abs(sp500PercentDisplay).toFixed(2) + '%' : '••%'}
+                                            {Math.abs(sp500PercentDisplay).toFixed(2) + '%'}
                                         </div>
                                     </div>
                                 </div>
