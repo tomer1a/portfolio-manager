@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול תיק השקעות - Dark Mode</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        gray: {
+                            850: '#1f2937',
+                            900: '#111827',
+                            950: '#030712',
+                        },
+                        portfolio: '#3b82f6', // Blue
+                        sp500: '#eab308',     // Yellow
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/react-is@18/umd/react-is.production.min.js"></script>
+
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Recharts -->
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.12.3/umd/Recharts.js"></script>
+
+    <!-- SheetJS for Excel import -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+
+    <!-- Application CSS (extracted) -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="antialiased min-h-screen">
+    <div id="root">
+        <div style="padding: 3rem; text-align: center; color: #9ca3af; font-family: sans-serif; direction: rtl;">
+            <h2 style="color: white; margin-bottom: 1rem;">טוען את המערכת...</h2>
+            <p>מתחבר למסד הנתונים בענן ומכין את התיק האישי שלך</p>
+        </div>
+    </div>
+
+
+    <!-- ============================================================= -->
+    <!-- Application JavaScript — Pure logic (no JSX)                  -->
+    <!-- Loaded as regular scripts so they work with file:// protocol  -->
+    <!-- ============================================================= -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/spData.js"></script>
+    <script src="js/chartBuilder.js"></script>
+    <script src="js/calculations.js"></script>
+    <script src="js/excelImport.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/handlers.js"></script>
+
+    <script type="text/babel">
+        // =====================================================================
+        // Library Availability Check
+        // =====================================================================
+        if (typeof React === 'undefined' || typeof window.Recharts === 'undefined') {
+            document.getElementById('root').innerHTML = '<div style="padding: 3rem; text-align: center; color: #f87171; font-family: sans-serif; direction: rtl;"><h2>Connection Error!</h2><p>Libraries failed to load from the internet.</p></div>';
+            throw new Error("Libraries failed to load.");
+        }
+
+        const { useState, useEffect, useMemo } = React;
+        const { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Dot, PieChart, Pie, Cell, Legend } = window.Recharts;
+
+        // =====================================================================
+        // SVG Icon Components
+        // =====================================================================
+        const IconTrendingUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>;
+        const IconTrendingDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline><polyline points="16 17 22 17 22 11"></polyline></svg>;
+        const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+        const IconEdit = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
+        const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 1 0 2.81-6.61L21 8"></path></svg>;
+        const IconEyeOpen = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
+        const IconEyeClosed = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
+        const IconUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+
+        // References to external utility functions (from js/*.js files)
+        const { getPositionStats, getJaggedNoise, normalizeSymbol, firebaseConfig, initialPositions } = window;
+
+        // --- Main App Component ---
+        const App = () => {
+            // State
+            const [currency, setCurrency] = useState('USD');
+            const [exchangeRate, setExchangeRate] = useState(3.65);
+            const [apiKey, setApiKey] = useState('');
+            const [tempApiKey, setTempApiKey] = useState('');
+            const [showSettings, setShowSettings] = useState(false);
+            const [apiError, setApiError] = useState('');
+
+            // Portfolio State
+            const [cash, setCash] = useState(5000);
+            const [cashRate, setCashRate] = useState(null);
+            const [positions, setPositions] = useState([]);
+            const [initialInvestment, setInitialInvestment] = useState(null);
+            const [investmentRate, setInvestmentRate] = useState(null);
+            const [spyData, setSpyData] = useState(null);
+
+            // UI States
+            const [isEditingCash, setIsEditingCash] = useState(false);
+            const [tempCash, setTempCash] = useState('5000');
+            const [tempCashRate, setTempCashRate] = useState('');
+
+            const [isAddingCash, setIsAddingCash] = useState(false);
+            const [tempAddCash, setTempAddCash] = useState('');
+            const [tempAddCashRate, setTempAddCashRate] = useState('');
+            const [tempAddCashDate, setTempAddCashDate] = useState('');
+
+            const [isEditingInv, setIsEditingInv] = useState(false);
+            const [tempInv, setTempInv] = useState('');
+            const [tempInvRate, setTempInvRate] = useState('');
+
+            const [isAddingInv, setIsAddingInv] = useState(false);
+            const [tempAddInv, setTempAddInv] = useState('');
+            const [tempAddInvRate, setTempAddInvRate] = useState('');
+            const [tempAddInvDate, setTempAddInvDate] = useState('');
+
+            const [editingStockId, setEditingStockId] = useState(null);
+            const [editStockData, setEditStockData] = useState({ shares: '', price: '' });
+            const [loading, setLoading] = useState(true);
+            const [historicalFX, setHistoricalFX] = useState(null);
+            const [newSymbol, setNewSymbol] = useState('');
+            const [newShares, setNewShares] = useState('');
+            const [newPrice, setNewPrice] = useState('');
+            const [newDate, setNewDate] = useState('');
+
+            // Multi-transaction & dividend states
+            const [expandedStocks, setExpandedStocks] = useState({});
+            const [dividendForm, setDividendForm] = useState(null); // symbol being edited
+            const [tempDivAmount, setTempDivAmount] = useState('');
+            const [tempDivDate, setTempDivDate] = useState('');
+            const [snapshots, setSnapshots] = useState([]);
+            const [chartRange, setChartRange] = useState('ALL');
+            const [chartView, setChartView] = useState('performance'); // 'performance' or 'allocation'
+            const [cashDeposits, setCashDeposits] = useState([]);
+
+            // Firebase Cloud States
+            const [user, setUser] = useState(null);
+            const [dbInstance, setDbInstance] = useState(null);
+            const [dbReady, setDbReady] = useState(false);
+            const [cloudError, setCloudError] = useState('');
+            const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+            // Toggle for S&P 500 Comparison
+            const [showSp500, setShowSp500] = useState(true);
+            const [showTaxSection, setShowTaxSection] = useState(false);
+            const [showValues, setShowValues] = useState(false);
+
+            // Sorting state for positions table
+            const [sortColumn, setSortColumn] = useState('weight'); // default: sort by weight (biggest first)
+            const [sortDirection, setSortDirection] = useState('desc');
+
+            const handleSort = (column) => {
+                if (sortColumn === column) {
+                    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                } else {
+                    setSortColumn(column);
+                    setSortDirection('desc');
+                }
+            };
+
+            const getSortArrow = (column) => {
+                if (sortColumn !== column) return '⇅';
+                return sortDirection === 'asc' ? '▲' : '▼';
+            };
+
+            // 1. Initialize Firebase (delegates to api.js)
+            useEffect(() => {
+                window.initFirebaseAuth({
+                    firebaseConfig, setDbInstance, setUser, setCloudError,
+                    setPositions, setDbReady, initialPositions
+                });
+            }, []);
+
+            // 2. Load cloud data (delegates to api.js)
+            useEffect(() => {
+                const unsub = window.setupCloudListener({
+                    user, dbInstance, normalizeSymbol, setPositions, setCash,
+                    setCashRate, setInitialInvestment, setInvestmentRate,
+                    setCashDeposits, setApiKey, setTempApiKey,
+                    setCloudError, setDbReady, initialPositions
+                });
+                return () => unsub();
+            }, [user, dbInstance]);
+
+            // SaveToDb wrapper — delegates to api.js
+            const saveToDb = (newPositions, newCash, newApiKey, newInitInv, newCashRate, newInvRate, newDeposits) => {
+                window.savePortfolioToDb(
+                    { positions, cash, apiKey, initialInvestment, cashRate, investmentRate, cashDeposits,
+                      user, dbInstance, setPositions, setCash, setApiKey, setInitialInvestment,
+                      setCashRate, setInvestmentRate, setCashDeposits },
+                    { newPositions, newCash, newApiKey, newInitInv, newCashRate, newInvRate, newDeposits }
+                );
+            };
+
+            // 3. Fetch exchange rates (delegates to api.js)
+            useEffect(() => {
+                window.fetchExchangeRates({ setExchangeRate, setHistoricalFX, setLoading });
+            }, []);
+
+            // 4. Fetch realtime stock prices (delegates to api.js)
+            useEffect(() => {
+                if (dbReady && apiKey) {
+                    window.fetchRealtimePrices({
+                        positions, apiKey, user, dbInstance, setLoading, setApiError,
+                        setSpyData, saveToDb, getPositionStats
+                    });
+                }
+            }, [apiKey, dbReady, refreshTrigger]);
+
+
+            // FX History helper
+            const getRateAtDate = (dateStr, currentRate) => {
+                if (!historicalFX || Object.keys(historicalFX).length === 0) return currentRate;
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return currentRate;
+                const today = new Date();
+                if (d.toDateString() === today.toDateString() || d > today) return currentRate;
+
+                // Use local timezone for date key (toISOString uses UTC, which shifts dates
+                // by 1 day in Israel timezone and breaks lookups against Frankfurter API data)
+                const toLocalDateKey = (dt) => {
+                    const y = dt.getFullYear();
+                    const m = String(dt.getMonth() + 1).padStart(2, '0');
+                    const dd = String(dt.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${dd}`;
+                };
+
+                let searchDate = new Date(d);
+                for (let i = 0; i < 10; i++) {
+                    const dateKey = toLocalDateKey(searchDate);
+                    if (historicalFX[dateKey]) return historicalFX[dateKey];
+                    searchDate.setDate(searchDate.getDate() - 1);
+                }
+                return currentRate;
+            };
+
+            // Chart Data — delegates to chartBuilder.js
+            const chartData = useMemo(() => {
+                if (!dbReady || !positions || positions.length === 0) return [];
+                return window.buildChartData({
+                    positions, cash, cashRate, exchangeRate,
+                    initialInvestment, investmentRate, spyData,
+                    cashDeposits, historicalFX, getRateAtDate,
+                    getPositionStats, getJaggedNoise
+                });
+            }, [positions, cash, exchangeRate, cashRate, historicalFX, dbReady, initialInvestment, investmentRate, currency, spyData, cashDeposits]);
+
+            // Calculations
+            const formatMoney = (amount) => {
+                if (!showValues) return '•••••';
+                const symbol = currency === 'ILS' ? '₪' : '$';
+                return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            };
+
+            const formatPercent = (value, decimals = 2) => {
+                if (!showValues) return '••%';
+                return `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%`;
+            };
+
+            // Portfolio Calculations — delegates to calculations.js
+            const calculateTotals = () => window.calculateTotals({
+                positions, cash, cashRate, exchangeRate,
+                initialInvestment, investmentRate, currency, getRateAtDate
+            });
+
+            const calculateTaxSummary = () => window.calculateTaxSummary({
+                positions, exchangeRate, currency, getRateAtDate
+            });
+
+
+            const { val: portfolioCurrentDisplay, profit: portfolioProfitDisplay, profitPercent: portfolioProfitPercentDisplay, dynCost, dynCostUSD, dailyProfit: portfolioDailyProfit, dailyProfitPercent: portfolioDailyProfitPercent, ytdProfit: portfolioYtdProfit, ytdProfitPercent: portfolioYtdProfitPercent, totalDividends: portfolioTotalDividends } = calculateTotals();
+
+            // S&P 500 Calculations for the Summary Card
+            const sp500PercentDisplay = chartData.length > 0 ? (currency === 'ILS' ? chartData[chartData.length - 1].sp500PercentILS : chartData[chartData.length - 1].sp500PercentUSD) : 0;
+
+            // Get the actual S&P 500 index value from chart data
+            const currentSp500Index = chartData.length > 0 ? chartData[chartData.length - 1].sp500IndexValue : null;
+
+            // Form Handlers — delegates to handlers.js
+            const handleAddPosition = (e) => window.handleAddPositionLogic(e, {
+                newSymbol, newShares, newPrice, newDate, currency, exchangeRate,
+                positions, cash, cashRate, apiKey, getRateAtDate, normalizeSymbol,
+                getPositionStats, saveToDb, setNewSymbol, setNewShares, setNewPrice, setNewDate
+            });
+
+            const removePosition = (id) => window.removePositionLogic(id, {
+                positions, cash, cashRate, exchangeRate, getRateAtDate, saveToDb
+            });
+
+            const removeTransaction = (posId, txnId) => window.removeTransactionLogic(posId, txnId, {
+                positions, cash, cashRate, exchangeRate, getRateAtDate, saveToDb
+            });
+
+            const startEditingStock = (pos) => {
+                const stats = getPositionStats(pos);
+                const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
+                setEditingStockId(pos.id);
+                setEditStockData({ shares: stats.totalShares.toString(), price: (stats.avgPrice * rateAtPurchase).toFixed(2) });
+            };
+
+            const saveStockEdit = (id, originalDate) => window.saveStockEditLogic(id, originalDate, {
+                currency, exchangeRate, editStockData, positions, getRateAtDate, saveToDb, setEditingStockId
+            });
+
+            const handleAddDividend = (posId) => window.handleAddDividendLogic(posId, {
+                tempDivAmount, tempDivDate, positions, cash, cashRate, exchangeRate, currency,
+                getRateAtDate, getPositionStats, saveToDb, setDividendForm, setTempDivAmount, setTempDivDate
+            });
+
+            const removeDividend = (posId, divId) => window.removeDividendLogic(posId, divId, {
+                positions, cash, cashRate, exchangeRate, saveToDb
+            });
+
+            const cancelStockEdit = () => setEditingStockId(null);
+
+            // Excel Import (delegates to excelImport.js)
+            const handleExcelImport = async (e) => {
+                const file = e.target.files[0]; if (!file) return; e.target.value = '';
+                try {
+                    const result = await window.parseExcelFile(file, apiKey, normalizeSymbol);
+                    if (!result) return;
+                    const newCash = result.finalCash !== null ? result.finalCash : cash;
+                    await saveToDb(result.newPositions, newCash, undefined, result.totalDeposits > 0 ? result.totalDeposits : undefined, undefined, undefined, result.depositEvents);
+                    alert(result.summary); window.location.reload();
+                } catch (err) { console.error('Excel import error:', err); alert('Import error: ' + err.message); }
+            };
+
+            const handleAddCashSubmit = () => window.handleAddCashLogic({
+                tempAddCash, tempAddCashRate, tempAddCashDate, cash, cashRate, exchangeRate,
+                getRateAtDate, saveToDb, setIsAddingCash
+            });
+
+            const handleAddInvSubmit = () => window.handleAddInvLogic({
+                tempAddInv, tempAddInvRate, tempAddInvDate, cash, cashRate, exchangeRate,
+                initialInvestment, investmentRate, positions, getRateAtDate, saveToDb, setIsAddingInv
+            });
+
+
+            // Custom Tooltip for Chart
+            const CustomTooltip = ({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                    const portPoint = payload.find(p => p.dataKey === 'portfolioPercentUSD' || p.dataKey === 'portfolioPercentILS');
+                    const spPoint = payload.find(p => p.dataKey === 'sp500PercentUSD' || p.dataKey === 'sp500PercentILS');
+
+                    const absValue = currency === 'ILS' ? portPoint?.payload?.absoluteValILS : portPoint?.payload?.absoluteValUSD;
+                    const displayValue = formatMoney(absValue || 0);
+                    const portVal = portPoint?.value || 0;
+                    const spVal = spPoint?.value || 0;
+                    const diff = portVal - spVal;
+                    const isOutperforming = diff >= 0;
+
+                    // Get actual S&P 500 index value for this data point
+                    let sp500AbsDisplay = '';
+                    const sp500Idx = portPoint?.payload?.sp500IndexValue;
+                    if (sp500Idx) {
+                        sp500AbsDisplay = sp500Idx.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    }
+
+                    return (
+                        <div className="chart-tooltip p-4 rounded-xl min-w-[240px]" style={{ borderRadius: '14px' }}>
+                            {/* Date header */}
+                            <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: '1px solid rgba(75, 85, 99, 0.3)' }}>
+                                <span style={{ fontSize: '11px', color: '#9ca3af', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 600 }}>📅</span>
+                                <span style={{ fontSize: '13px', color: '#d1d5db', fontWeight: 600, letterSpacing: '0.02em' }} dir="ltr">{label}</span>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {/* Portfolio row */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }} dir="ltr">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: portVal >= 0 ? '#22c55e' : '#ef4444', boxShadow: portVal >= 0 ? '0 0 8px rgba(34,197,94,0.5)' : '0 0 8px rgba(239,68,68,0.5)' }}></div>
+                                        <span style={{ color: '#e5e7eb', fontWeight: 500, fontSize: '13px' }}>תיק השקעות</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                        <span style={{ fontWeight: 700, fontSize: '14px', color: portVal >= 0 ? '#4ade80' : '#f87171' }}>
+                                            {portVal > 0 ? '+' : ''}{portVal.toFixed(2)}%
+                                        </span>
+                                        <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 500 }}>{displayValue}</span>
+                                    </div>
+                                </div>
+
+                                {/* S&P 500 row */}
+                                {showSp500 && (
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }} dir="ltr">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#eab308', boxShadow: '0 0 8px rgba(234,179,8,0.4)' }}></div>
+                                            <span style={{ color: '#e5e7eb', fontWeight: 500, fontSize: '13px' }}>S&P 500</span>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                            <span style={{ fontWeight: 700, fontSize: '14px', color: '#facc15' }}>
+                                                {spVal > 0 ? '+' : ''}{spVal.toFixed(2)}%
+                                            </span>
+                                            {sp500AbsDisplay && <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 500 }}>{sp500AbsDisplay}</span>}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Difference row - only when S&P is visible */}
+                                {showSp500 && (
+                                    <div style={{ marginTop: '4px', paddingTop: '8px', borderTop: '1px solid rgba(75, 85, 99, 0.3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} dir="ltr">
+                                        <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 500 }}>{isOutperforming ? '🏆' : '📉'} הפרש ביצועים</span>
+                                        <span style={{ fontWeight: 700, fontSize: '13px', color: isOutperforming ? '#4ade80' : '#f87171', background: isOutperforming ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)', padding: '2px 8px', borderRadius: '6px' }}>
+                                            {diff > 0 ? '+' : ''}{diff.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            };
+
+            if (!dbReady) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-[#030712] text-white">
+                        <div className="animate-pulse text-xl">טוען את המערכת...</div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+                    {/* Header */}
+                    <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-900 p-4 md:p-6 rounded-2xl border border-gray-800 shadow-lg">
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                                    ניהול תיק השקעות
+                                </h1>
+                                {/* Cloud/Local Badge */}
+                                <div
+                                    className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border cursor-default transition-colors ${user ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : cloudError ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-gray-800 text-gray-400 border-gray-700'}`}
+                                    title={user ? `מחובר לענן (משתמש: ${user.uid.substring(0, 5)}...)` : cloudError ? `שגיאת חיבור לענן: ${cloudError}` : 'מצב מקומי (הנתונים יישמרו רק בדפדפן הזה)'}
+                                >
+                                    <IconUser />
+                                    {user ? 'שמור בענן' : cloudError ? 'שגיאת חיבור' : 'מקומי'}
+                                </div>
+                                {loading && <span className="text-sm font-normal text-gray-500 animate-pulse">(מרענן...)</span>}
+                            </div>
+                            <p className="text-gray-400 text-sm mt-1">מעקב בזמן אמת והיסטוריית ביצועים - מותאם אישית</p>
+                        </div>
+
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                            {/* Currency Toggle */}
+                            <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
+                                <button
+                                    onClick={() => setCurrency('USD')}
+                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${currency === 'USD' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    $ USD
+                                </button>
+                                <button
+                                    onClick={() => setCurrency('ILS')}
+                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${currency === 'ILS' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    ₪ ILS
+                                </button>
+                            </div>
+
+                            {/* Show/Hide Values Toggle */}
+                            <button
+                                onClick={() => setShowValues(!showValues)}
+                                className={`p-2 rounded-lg border transition-colors ${showValues ? 'bg-gray-800 text-emerald-400 border-emerald-500/30 hover:text-emerald-300' : 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white'}`}
+                                title={showValues ? 'הסתר סכומים' : 'הצג סכומים'}
+                            >
+                                {showValues ? <IconEyeOpen /> : <IconEyeClosed />}
+                            </button>
+
+                            {/* Refresh Button */}
+                            <button
+                                onClick={() => {
+                                    if (apiKey) {
+                                        setRefreshTrigger(prev => prev + 1);
+                                    }
+                                    else setShowSettings(true);
+                                }}
+                                className="p-2 bg-gray-800 text-gray-400 hover:text-portfolio rounded-lg border border-gray-700 transition-colors"
+                                title="רענן מחירים מה-API"
+                            >
+                                <IconRefresh />
+                            </button>
+
+                            {/* Settings Toggle */}
+                            <button
+                                onClick={() => setShowSettings(!showSettings)}
+                                className="p-2 bg-gray-800 text-gray-400 hover:text-white rounded-lg border border-gray-700 transition-colors"
+                            >
+                                <IconSettings />
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Settings Panel */}
+                    {showSettings && (
+                        <div className="bg-gray-850 p-4 rounded-xl border border-gray-700 shadow-md animate-fade-in">
+                            <h3 className="text-lg font-semibold mb-3 text-gray-200">הגדרות מתקדמות</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">Finnhub API Key (לנתוני אמת)</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="password"
+                                            value={tempApiKey}
+                                            onChange={(e) => setTempApiKey(e.target.value.trim())}
+                                            placeholder="הכנס מפתח API כאן..."
+                                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-portfolio transition-colors"
+                                        />
+                                        <button
+                                            onClick={() => saveToDb(undefined, undefined, tempApiKey, undefined, undefined, undefined)}
+                                            className="bg-portfolio hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                                        >
+                                            שמור והתחבר
+                                        </button>
+                                    </div>
+                                    {apiError ? (
+                                        <p className="text-xs text-red-400 mt-1">{apiError}</p>
+                                    ) : (
+                                        <p className="text-xs text-gray-500 mt-1">ללא מפתח יוצגו נתוני דמה (Mock Data) להמחשה. המפתח נשמר בחשבון הענן שלך.</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">שער דולר נוכחי (לחישוב שווי יומי)</label>
+                                    <input
+                                        type="number"
+                                        step="0.001"
+                                        value={exchangeRate}
+                                        onChange={(e) => {
+                                            const val = parseFloat(e.target.value);
+                                            if (!isNaN(val)) setExchangeRate(val);
+                                        }}
+                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-portfolio transition-colors"
+                                    />
+                                    <p className="text-xs text-gray-500 mt-1">נמשך אוטומטית בהתחלה, אך ניתן לדייק ידנית.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Chart Section */}
+                    {/* Chart View Toggle */}
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className="flex bg-gray-800/80 p-1 rounded-lg border border-gray-700/50">
+                            <button
+                                onClick={() => setChartView('performance')}
+                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${chartView === 'performance'
+                                    ? 'bg-portfolio text-white shadow-lg shadow-blue-500/20'
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                                ביצועים
+                            </button>
+                            <button
+                                onClick={() => setChartView('allocation')}
+                                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${chartView === 'allocation'
+                                    ? 'bg-portfolio text-white shadow-lg shadow-blue-500/20'
+                                    : 'text-gray-400 hover:text-white hover:bg-gray-700/50'}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                                הרכב תיק
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Allocation Pie Chart */}
+                    {chartView === 'allocation' && (() => {
+                        const PIE_COLORS = [
+                            '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b',
+                            '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316',
+                            '#84cc16', '#a855f7', '#0ea5e9', '#22c55e', '#eab308'
+                        ];
+                        const rateNow = currency === 'ILS' ? exchangeRate : 1;
+                        const pieData = positions
+                            .map(pos => {
+                                const stats = getPositionStats(pos);
+                                const value = stats.totalShares * (pos.currentPrice || 0) * rateNow;
+                                return { name: pos.symbol, value: parseFloat(value.toFixed(2)), shares: stats.totalShares };
+                            })
+                            .filter(d => d.value > 0);
+                        const cashValue = (cash || 0) * rateNow;
+                        if (cashValue > 0) pieData.push({ name: 'Cash', value: parseFloat(cashValue.toFixed(2)), shares: 0 });
+                        const totalValue = pieData.reduce((s, d) => s + d.value, 0);
+
+                        const PieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                            if (percent < 0.04) return null;
+                            const RADIAN = Math.PI / 180;
+                            const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                            return (
+                                <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={600}>
+                                    <tspan x={x} dy="-0.4em">{name}</tspan>
+                                    <tspan x={x} dy="1.2em" fontSize={10} fillOpacity={0.8}>{(percent * 100).toFixed(1)}%</tspan>
+                                </text>
+                            );
+                        };
+
+                        const PieTooltip = ({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                                const d = payload[0];
+                                const pct = totalValue > 0 ? ((d.value / totalValue) * 100).toFixed(1) : 0;
+                                return (
+                                    <div className="chart-tooltip p-3 rounded-xl min-w-[160px]" style={{ borderRadius: '14px' }}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: d.payload.fill }}></div>
+                                            <span style={{ color: '#e5e7eb', fontWeight: 600, fontSize: 14 }}>{d.name}</span>
+                                        </div>
+                                        <div style={{ fontSize: 13, color: '#9ca3af' }}>
+                                            <div>Value: <span style={{ color: '#fff', fontWeight: 600 }}>{formatMoney(d.value)}</span></div>
+                                            <div>Weight: <span style={{ color: '#fff', fontWeight: 600 }}>{pct}%</span></div>
+                                            {d.payload.shares > 0 && <div>Shares: <span style={{ color: '#fff', fontWeight: 600 }}>{d.payload.shares}</span></div>}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        };
+
+                        return (
+                            <div className="bg-[#111827] rounded-2xl border border-gray-800 p-6 shadow-xl" style={{ boxShadow: '0 4px 40px rgba(0,0,0,0.3), 0 0 60px rgba(59,130,246,0.03)' }}>
+                                <div className="flex flex-col md:flex-row items-center gap-6">
+                                    <div className="h-[420px] w-full md:w-3/5" dir="ltr">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={pieData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={80}
+                                                    outerRadius={160}
+                                                    paddingAngle={2}
+                                                    dataKey="value"
+                                                    label={PieLabel}
+                                                    labelLine={false}
+                                                    stroke="#111827"
+                                                    strokeWidth={2}
+                                                >
+                                                    {pieData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip content={<PieTooltip />} />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    <div className="w-full md:w-2/5 space-y-2">
+                                        <h3 className="text-lg font-semibold text-gray-200 mb-3">הרכב התיק</h3>
+                                        {pieData.map((d, idx) => {
+                                            const pct = totalValue > 0 ? ((d.value / totalValue) * 100).toFixed(1) : 0;
+                                            return (
+                                                <div key={d.name} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-800/50 transition-colors">
+                                                    <div className="flex items-center gap-2">
+                                                        <div style={{ width: 12, height: 12, borderRadius: 3, background: PIE_COLORS[idx % PIE_COLORS.length] }}></div>
+                                                        <span className="text-sm text-gray-300 font-medium" dir="ltr">{d.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-sm text-gray-400">{pct}%</span>
+                                                        <span className="text-sm text-white font-semibold w-24 text-left" dir="ltr">{formatMoney(d.value)}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        <div className="border-t border-gray-700/50 pt-2 mt-2 flex items-center justify-between px-2">
+                                            <span className="text-sm text-gray-400 font-medium">סה"כ</span>
+                                            <span className="text-sm text-white font-bold" dir="ltr">{formatMoney(totalValue)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Performance Chart */}
+                    {chartView === 'performance' && (() => {
+                        // Filter chart data by selected time range
+                        const now = Date.now();
+                        const rangeMs = {
+                            '1M': 30 * 24 * 60 * 60 * 1000,
+                            '3M': 90 * 24 * 60 * 60 * 1000,
+                            '6M': 180 * 24 * 60 * 60 * 1000,
+                            'YTD': now - new Date(new Date().getFullYear(), 0, 1).getTime(),
+                            '1Y': 365 * 24 * 60 * 60 * 1000,
+                            'ALL': Infinity
+                        };
+                        const cutoff = chartRange === 'ALL' ? 0 : now - rangeMs[chartRange];
+                        const rawFiltered = chartData.filter(d => d.timestamp >= cutoff);
+                        const portKey = currency === 'ILS' ? 'portfolioPercentILS' : 'portfolioPercentUSD';
+                        const spKey = currency === 'ILS' ? 'sp500PercentILS' : 'sp500PercentUSD';
+
+                        // Rebase to 0% at start of selected range perfectly mathematically
+                        const basePort = rawFiltered.length > 0 ? rawFiltered[0][portKey] : 0;
+                        const baseSp = rawFiltered.length > 0 ? rawFiltered[0][spKey] : 0;
+                        
+                        const rebase = (current, base) => (((1 + (current / 100)) / (1 + (base / 100))) - 1) * 100;
+
+                        const filteredData = rawFiltered.map(d => ({
+                            ...d,
+                            [portKey]: parseFloat(rebase(d[portKey], basePort).toFixed(2)),
+                            [spKey]: parseFloat(rebase(d[spKey], baseSp).toFixed(2))
+                        }));
+
+                        // Snap the last point to match actual calculated values
+                        if (filteredData.length > 0) {
+                            if (chartRange === 'YTD') {
+                                // Use the real YTD profit percent from API data
+                                filteredData[filteredData.length - 1][portKey] = parseFloat(portfolioYtdProfitPercent.toFixed(2));
+                            }
+                        }
+
+                        const allVals = filteredData.flatMap(d => showSp500 ? [d[portKey], d[spKey]] : [d[portKey]]).filter(v => v !== undefined);
+                        const dataMin = allVals.length > 0 ? Math.floor(Math.min(...allVals) / 5) * 5 - 5 : -20;
+                        const dataMax = allVals.length > 0 ? Math.ceil(Math.max(...allVals) / 5) * 5 + 5 : 30;
+                        const lastPoint = filteredData.length > 0 ? filteredData[filteredData.length - 1] : null;
+                        const portfolioPositive = lastPoint ? lastPoint[portKey] >= 0 : true;
+
+                        // Calculate end-of-range performance for badges
+                        const rangePerfPort = lastPoint ? lastPoint[portKey] : 0;
+                        const rangePerfSp = lastPoint ? lastPoint[spKey] : 0;
+                        const rangeDiff = rangePerfPort - rangePerfSp;
+
+                        // Detect crossover points (portfolio crosses S&P)
+                        const crossoverPoints = [];
+                        if (showSp500 && filteredData.length > 1) {
+                            for (let i = 1; i < filteredData.length; i++) {
+                                const prevDiff = filteredData[i-1][portKey] - filteredData[i-1][spKey];
+                                const currDiff = filteredData[i][portKey] - filteredData[i][spKey];
+                                if ((prevDiff < 0 && currDiff >= 0) || (prevDiff >= 0 && currDiff < 0)) {
+                                    crossoverPoints.push(i);
+                                }
+                            }
+                        }
+
+                        // Add crossover markers to data
+                        const enrichedData = filteredData.map((d, idx) => ({
+                            ...d,
+                            crossover: crossoverPoints.includes(idx) ? d[portKey] : undefined
+                        }));
+
+                        // Custom crossover dot renderer
+                        const CrossoverDot = (props) => {
+                            const { cx, cy, payload } = props;
+                            if (payload.crossover === undefined) return null;
+                            return (
+                                <g>
+                                    <circle cx={cx} cy={cy} r={6} fill="none" stroke="#a78bfa" strokeWidth={2} opacity={0.7} />
+                                    <circle cx={cx} cy={cy} r={3} fill="#a78bfa" opacity={0.9} />
+                                </g>
+                            );
+                        };
+
+                        return (
+                    <div className="bg-[#111827] rounded-2xl border border-gray-800 p-6 shadow-xl" style={{ boxShadow: '0 4px 40px rgba(0,0,0,0.3), 0 0 60px rgba(59,130,246,0.03)' }}>
+                        {/* Option Toggles, Performance Badges, and Time Range Selector */}
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
+                            <div className="flex items-center gap-4 flex-wrap">
+                                {/* Toggle S&P 500 Checkbox/Switch */}
+                                <label className="flex items-center gap-3 cursor-pointer group">
+                                    <div className="relative">
+                                        <input 
+                                            type="checkbox" 
+                                            className="sr-only" 
+                                            checked={showSp500}
+                                            onChange={(e) => setShowSp500(e.target.checked)}
+                                        />
+                                        <div className={`block w-10 h-6 rounded-full transition-colors ${showSp500 ? 'bg-sp500' : 'bg-gray-700'}`}></div>
+                                        <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${showSp500 ? 'transform translate-x-4' : ''}`}></div>
+                                    </div>
+                                    <span className={`text-sm font-medium transition-colors ${showSp500 ? 'text-gray-200' : 'text-gray-500 group-hover:text-gray-400'}`}>
+                                        השווה למדד S&P 500
+                                    </span>
+                                </label>
+
+                                {/* Live Performance Badges */}
+                                <div className="flex items-center gap-2" dir="ltr">
+                                    <div className={`badge-live flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${rangePerfPort >= 0 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                        <span style={{ fontSize: '8px' }}>●</span>
+                                        תיק {rangePerfPort > 0 ? '+' : ''}{rangePerfPort.toFixed(1)}%
+                                    </div>
+                                    {showSp500 && (
+                                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                                            <span style={{ fontSize: '8px' }}>●</span>
+                                            S&P {rangePerfSp > 0 ? '+' : ''}{rangePerfSp.toFixed(1)}%
+                                        </div>
+                                    )}
+                                    {showSp500 && (
+                                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border ${rangeDiff >= 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                            {rangeDiff >= 0 ? '🏆' : '📉'}
+                                            <span dir="ltr">{rangeDiff > 0 ? '+' : ''}{rangeDiff.toFixed(1)}%</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Time Range Selector */}
+                            <div className="flex items-center gap-2 self-end">
+                                <span className="text-sm text-gray-400 font-medium ml-2">טווח ימים:</span>
+                                <div className="flex bg-gray-800/80 p-1 rounded-lg border border-gray-700/50" dir="ltr">
+                                    {['1M', '3M', '6M', 'YTD', '1Y', 'ALL'].map(range => (
+                                        <button
+                                            key={range}
+                                            onClick={() => setChartRange(range)}
+                                            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all duration-200 ${chartRange === range
+                                                ? 'bg-portfolio text-white shadow-lg shadow-blue-500/20'
+                                                : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                                            }`}
+                                        >
+                                            {range}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="h-[420px] w-full" dir="ltr">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={enrichedData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="portfolioGradientGreen" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.35} />
+                                            <stop offset="40%" stopColor="#22c55e" stopOpacity={0.12} />
+                                            <stop offset="100%" stopColor="#22c55e" stopOpacity={0.02} />
+                                        </linearGradient>
+                                        <linearGradient id="portfolioGradientRed" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#ef4444" stopOpacity={0.35} />
+                                            <stop offset="40%" stopColor="#ef4444" stopOpacity={0.12} />
+                                            <stop offset="100%" stopColor="#ef4444" stopOpacity={0.02} />
+                                        </linearGradient>
+                                        <linearGradient id="sp500Gradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="#eab308" stopOpacity={0.2} />
+                                            <stop offset="40%" stopColor="#eab308" stopOpacity={0.08} />
+                                            <stop offset="100%" stopColor="#eab308" stopOpacity={0.01} />
+                                        </linearGradient>
+                                        {/* Portfolio line glow filter */}
+                                        <filter id="glowGreen" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feGaussianBlur stdDeviation="3" result="blur" />
+                                            <feFlood floodColor="#22c55e" floodOpacity="0.4" />
+                                            <feComposite in2="blur" operator="in" />
+                                            <feMerge>
+                                                <feMergeNode />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                        <filter id="glowRed" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feGaussianBlur stdDeviation="3" result="blur" />
+                                            <feFlood floodColor="#ef4444" floodOpacity="0.4" />
+                                            <feComposite in2="blur" operator="in" />
+                                            <feMerge>
+                                                <feMergeNode />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                        <filter id="glowGold" x="-20%" y="-20%" width="140%" height="140%">
+                                            <feGaussianBlur stdDeviation="2.5" result="blur" />
+                                            <feFlood floodColor="#eab308" floodOpacity="0.3" />
+                                            <feComposite in2="blur" operator="in" />
+                                            <feMerge>
+                                                <feMergeNode />
+                                                <feMergeNode in="SourceGraphic" />
+                                            </feMerge>
+                                        </filter>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(55, 65, 81, 0.5)" />
+                                    <XAxis
+                                        dataKey="dateStr"
+                                        tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
+                                        tickMargin={12}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        minTickGap={50}
+                                    />
+                                    <YAxis
+                                        tickFormatter={(tick) => `${tick > 0 ? '+' : ''}${tick}%`}
+                                        tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        domain={[dataMin, dataMax]}
+                                        width={55}
+                                    />
+                                    <Tooltip 
+                                        content={<CustomTooltip />}
+                                        cursor={{ stroke: 'rgba(148, 163, 184, 0.3)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                                    />
+                                    <ReferenceLine y={0} stroke="rgba(75, 85, 99, 0.6)" strokeDasharray="6 3" strokeWidth={1.5} />
+
+                                    {/* S&P 500 Area (Gold) - Optional */}
+                                    {showSp500 && (
+                                        <Area
+                                            type="monotone"
+                                            dataKey={spKey}
+                                            stroke="#eab308"
+                                            strokeWidth={2}
+                                            fill="url(#sp500Gradient)"
+                                            dot={false}
+                                            activeDot={{ r: 6, fill: '#eab308', stroke: '#1f2937', strokeWidth: 3 }}
+                                            style={{ filter: 'url(#glowGold)' }}
+                                        />
+                                    )}
+
+                                    {/* Crossover marker dots */}
+                                    {showSp500 && crossoverPoints.length > 0 && (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="crossover"
+                                            stroke="none"
+                                            fill="none"
+                                            dot={<CrossoverDot />}
+                                            activeDot={false}
+                                            connectNulls={false}
+                                            isAnimationActive={false}
+                                        />
+                                    )}
+
+                                    {/* Portfolio Area (Green when positive, Red when negative) */}
+                                    <Area
+                                        type="monotone"
+                                        dataKey={portKey}
+                                        stroke={portfolioPositive ? '#22c55e' : '#ef4444'}
+                                        strokeWidth={2.5}
+                                        fill={portfolioPositive ? 'url(#portfolioGradientGreen)' : 'url(#portfolioGradientRed)'}
+                                        dot={false}
+                                        activeDot={{ r: 7, fill: portfolioPositive ? '#22c55e' : '#ef4444', stroke: '#111827', strokeWidth: 3 }}
+                                        style={{ filter: portfolioPositive ? 'url(#glowGreen)' : 'url(#glowRed)' }}
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        {/* Summary Legend */}
+                        <div className="mt-8 flex flex-col md:flex-row justify-between gap-6 rtl-text">
+
+                            {/* כרטיסיית התיק עם אפשרות השקעה ראשונית */}
+                            <div className="flex flex-col w-full p-4 bg-gray-800/50 rounded-xl border border-gray-700/50">
+                                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-1.5 h-6 bg-portfolio rounded-full"></div>
+                                        <span className="font-semibold text-gray-200">תיק השקעות</span>
+                                    </div>
+                                    <div className="flex items-center gap-4 md:gap-6">
+                                        <div className="flex flex-col">
+                                            <span className="text-lg font-bold text-white leading-none">{formatMoney(portfolioCurrentDisplay)}</span>
+                                            <div className="flex items-center gap-3 mt-1">
+                                                <div className={`text-xs font-medium flex gap-1 ${portfolioDailyProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    <span>יומי:</span>
+                                                    <span dir="ltr">{showValues ? (portfolioDailyProfit >= 0 ? '+' : '') : ''}{formatMoney(portfolioDailyProfit)} ({formatPercent(portfolioDailyProfitPercent)})</span>
+                                                </div>
+                                                <div className={`text-xs font-medium flex gap-1 ${portfolioYtdProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                    <span>מתחילת שנה:</span>
+                                                    <span dir="ltr">{showValues ? (portfolioYtdProfit >= 0 ? '+' : '') : ''}{formatMoney(portfolioYtdProfit)} ({formatPercent(portfolioYtdProfitPercent)})</span>
+                                                </div>
+                                                {portfolioTotalDividends > 0 && (
+                                                    <div className="text-xs font-medium flex gap-1 text-emerald-400">
+                                                        <span>דיבידנדים:</span>
+                                                        <span dir="ltr">+{formatMoney(portfolioTotalDividends)}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <span className={`font-medium ${portfolioProfitDisplay >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                {portfolioProfitDisplay >= 0 ? '+' : ''}{formatMoney(portfolioProfitDisplay)}
+                                            </span>
+                                            <div className={`mt-1 flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold ${portfolioProfitPercentDisplay >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                                {portfolioProfitPercentDisplay >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+                                                {showValues ? Math.abs(portfolioProfitPercentDisplay).toFixed(2) + '%' : '••%'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* שורת "בסיס עלות / הפקדות נטו" */}
+                                <div className="mt-4 pt-3 border-t border-gray-700/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-sm">
+                                    <span className="text-gray-400 font-medium">השקעה נטו (בסיס עלות):</span>
+                                    {isEditingInv ? (
+                                        <div className="flex items-center gap-2" dir="ltr">
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                placeholder="$ סכום"
+                                                title="סכום בדולרים"
+                                                value={tempInv}
+                                                onChange={e => setTempInv(e.target.value)}
+                                                className="w-24 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-portfolio"
+                                                autoFocus
+                                            />
+                                            <span className="text-gray-500 text-xs">@</span>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                placeholder="₪ שער"
+                                                title="שער דולר (ILS/USD)"
+                                                value={tempInvRate}
+                                                onChange={e => setTempInvRate(e.target.value)}
+                                                className="w-20 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-portfolio"
+                                            />
+                                            <button onClick={() => {
+                                                const val = tempInv === '' ? null : parseFloat(tempInv);
+                                                const rate = parseFloat(tempInvRate) || exchangeRate;
+                                                saveToDb(undefined, undefined, undefined, val, undefined, rate);
+                                                setIsEditingInv(false);
+                                            }} className="text-green-400 hover:text-green-300 font-bold">✓</button>
+                                            <button onClick={() => setIsEditingInv(false)} className="text-red-400 hover:text-red-300 font-bold">✕</button>
+                                        </div>
+                                    ) : isAddingInv ? (
+                                        <div className="flex items-center gap-2" dir="ltr">
+                                            <span className="text-emerald-400 font-bold">+</span>
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                placeholder="$ amount"
+                                                value={tempAddInv}
+                                                onChange={e => setTempAddInv(e.target.value)}
+                                                className="w-20 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400"
+                                                autoFocus
+                                            />
+                                            <span className="text-gray-500 text-xs">@</span>
+                                            <input
+                                                type="date"
+                                                value={tempAddInvDate}
+                                                onChange={(e) => setTempAddInvDate(e.target.value)}
+                                                className="w-28 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400 custom-date-input"
+                                                style={{ colorScheme: 'dark' }}
+                                                title="תאריך להשגת השער, או השאר ריק להזנה ידנית/נוכחי"
+                                            />
+                                            <input
+                                                type="number"
+                                                step="any"
+                                                placeholder="₪ Rate"
+                                                value={tempAddInvRate}
+                                                onChange={(e) => {
+                                                    setTempAddInvRate(e.target.value);
+                                                    setTempAddInvDate(''); // איפוס תאריך אם משנים שער ידנית
+                                                }}
+                                                className="w-16 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400"
+                                                disabled={!!tempAddInvDate} // חסימת השער אם נבחר תאריך
+                                            />
+                                            <button onClick={handleAddInvSubmit} className="text-green-400 hover:text-green-300 font-bold">✓</button>
+                                            <button onClick={() => setIsAddingInv(false)} className="text-red-400 hover:text-red-300 font-bold">✕</button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-bold text-gray-200">
+                                                {initialInvestment !== null
+                                                    ? formatMoney(initialInvestment * (currency === 'ILS' ? (investmentRate !== null ? investmentRate : exchangeRate) : 1))
+                                                    : formatMoney(dynCost) + ' (אוטומטי)'}
+                                            </span>
+                                            {initialInvestment !== null && (
+                                                <span className="text-xs text-gray-500">
+                                                    (שער: ₪{investmentRate ? investmentRate.toFixed(2) : exchangeRate.toFixed(2)})
+                                                </span>
+                                            )}
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => {
+                                                    setIsAddingInv(true);
+                                                    setTempAddInv('');
+                                                    setTempAddInvRate(exchangeRate.toString());
+                                                    setTempAddInvDate('');
+                                                }} className="text-emerald-400 hover:text-emerald-300 text-sm font-medium transition-colors" title="הוסף הפקדה נטו (שער ממוצע משוקלל)">
+                                                    + הוסף
+                                                </button>
+                                                <button onClick={() => {
+                                                    setTempInv(initialInvestment !== null ? initialInvestment.toString() : dynCostUSD.toFixed(2));
+                                                    setTempInvRate(investmentRate !== null ? investmentRate.toString() : exchangeRate.toString());
+                                                    setIsEditingInv(true);
+                                                }} className="text-gray-500 hover:text-portfolio transition-colors" title="ערוך הפקדות נטו (דולר ושער)">
+                                                    ערוך
+                                                </button>
+                                                {initialInvestment !== null && (
+                                                    <button onClick={() => saveToDb(undefined, undefined, undefined, null, undefined, null)} className="text-gray-500 hover:text-red-400 transition-colors" title="אפס חזרה לחישוב אוטומטי">
+                                                        איפוס
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* כרטיסיית מדד S&P */}
+                            {showSp500 && (
+                                <div className="flex items-center justify-between w-full p-4 bg-gray-800/50 rounded-xl border border-gray-700/50 h-fit">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-1.5 h-6 bg-sp500 rounded-full"></div>
+                                        <span className="font-semibold text-gray-200">מדד S&P 500</span>
+                                    </div>
+                                    <div className="flex items-center gap-6">
+                                        <span className="text-lg font-bold text-white">{currentSp500Index ? currentSp500Index.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
+                                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-bold ${sp500PercentDisplay >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                                            {sp500PercentDisplay >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
+                                            {showValues ? Math.abs(sp500PercentDisplay).toFixed(2) + '%' : '••%'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                        );
+                    })()}
+
+                    {/* Summary Cards Row */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
+                        {/* Total Value Card */}
+                        <div className="summary-card card-value">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm text-gray-400 font-medium">שווי תיק</span>
+                                <div className="card-icon">💼</div>
+                            </div>
+                            <div className="text-2xl font-bold text-white">{formatMoney(portfolioCurrentDisplay)}</div>
+                            <div className="text-xs text-gray-500 mt-1">שער: ₪{exchangeRate.toFixed(2)}</div>
+                        </div>
+
+                        {/* Daily P&L Card */}
+                        <div className={`summary-card card-daily ${portfolioDailyProfit < 0 ? 'negative' : ''}`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm text-gray-400 font-medium">שינוי יומי</span>
+                                <div className="card-icon">{portfolioDailyProfit >= 0 ? '📈' : '📉'}</div>
+                            </div>
+                            <div className={`text-2xl font-bold ${portfolioDailyProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {portfolioDailyProfit >= 0 ? '+' : ''}{formatMoney(portfolioDailyProfit)}
+                            </div>
+                            <div className={`text-xs mt-1 ${portfolioDailyProfitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {formatPercent(portfolioDailyProfitPercent)}
+                            </div>
+                        </div>
+
+                        {/* Total Profit Card */}
+                        <div className={`summary-card card-total ${portfolioProfitDisplay < 0 ? 'negative' : ''}`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm text-gray-400 font-medium">רווח כולל</span>
+                                <div className="card-icon">{portfolioProfitDisplay >= 0 ? '🏆' : '📊'}</div>
+                            </div>
+                            <div className={`text-2xl font-bold ${portfolioProfitDisplay >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {portfolioProfitDisplay >= 0 ? '+' : ''}{formatMoney(portfolioProfitDisplay)}
+                            </div>
+                            <div className={`text-xs mt-1 ${portfolioProfitPercentDisplay >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {formatPercent(portfolioProfitPercentDisplay)}
+                            </div>
+                        </div>
+
+                        {/* YTD Card */}
+                        <div className={`summary-card card-ytd ${portfolioYtdProfit < 0 ? 'negative' : ''}`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm text-gray-400 font-medium">מתחילת שנה</span>
+                                <div className="card-icon">📅</div>
+                            </div>
+                            <div className={`text-2xl font-bold ${portfolioYtdProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {portfolioYtdProfit >= 0 ? '+' : ''}{formatMoney(portfolioYtdProfit)}
+                            </div>
+                            <div className={`text-xs mt-1 ${portfolioYtdProfitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {formatPercent(portfolioYtdProfitPercent)}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Tax Summary Section */}
+                    {(() => {
+                        const tax = calculateTaxSummary();
+                        const hasDividends = tax.dividends.grossUSD > 0;
+                        const hasSales = tax.capitalGains.details.length > 0;
+                        if (!hasDividends && !hasSales) return null;
+
+                        const fmt = (usd, ils) => currency === 'ILS' ? formatMoney(ils) : formatMoney(usd);
+                        const taxTotal = currency === 'ILS' ? tax.totalTaxILS : tax.totalTaxUSD;
+
+                        return (
+                            <div className="tax-card relative" style={{ position: 'relative' }}>
+                                <div
+                                    className="tax-card-header flex items-center justify-between p-5"
+                                    onClick={() => setShowTaxSection(!showTaxSection)}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                                            🏛️
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white" style={{ margin: 0 }}>סיכום מסים</h3>
+                                            <p className="text-xs text-gray-400" style={{ margin: 0 }}>מס דיבידנדים ורווחי הון ממומשים</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-xs text-gray-400">סה״כ מס משוער</span>
+                                            <span className="text-lg font-bold" style={{ color: '#a78bfa' }}>{fmt(tax.totalTaxUSD, tax.totalTaxILS)}</span>
+                                        </div>
+                                        <span className="text-gray-500 text-lg transition-transform" style={{ transform: showTaxSection ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}>▼</span>
+                                    </div>
+                                </div>
+
+                                {showTaxSection && (
+                                    <div className="tax-content-enter px-5 pb-5">
+                                        {/* Dividend Tax */}
+                                        {hasDividends && (
+                                            <div className="mb-4">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span style={{ fontSize: '14px' }}>💰</span>
+                                                    <h4 className="text-sm font-semibold text-indigo-300">מס על דיבידנדים (ניכוי במקור ארה״ב 25%)</h4>
+                                                </div>
+                                                <div style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '12px', padding: '16px' }}>
+                                                    {tax.dividends.details.map((d, i) => (
+                                                        <div key={i} className="tax-row">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-semibold text-gray-300" style={{ minWidth: '50px' }}>{d.symbol}</span>
+                                                                <span className="text-xs text-gray-500">{d.date}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-4" dir="ltr">
+                                                                <span className="text-xs text-gray-400">ברוטו: <span className="text-gray-200">{fmt(d.grossUSD, d.grossILS)}</span></span>
+                                                                <span className="text-xs text-red-400">מס: -{fmt(d.withheldUSD, d.withheldILS)}</span>
+                                                                <span className="text-xs text-emerald-400 font-medium">נטו: {fmt(d.netUSD, d.netILS)}</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                    <div className="tax-row" style={{ borderTop: '1px solid rgba(99, 102, 241, 0.2)', marginTop: '8px', paddingTop: '12px' }}>
+                                                        <span className="text-xs font-semibold text-gray-300">סה״כ דיבידנדים</span>
+                                                        <div className="flex items-center gap-4" dir="ltr">
+                                                            <span className="text-xs text-gray-300">ברוטו: <span className="font-semibold text-white">{fmt(tax.dividends.grossUSD, tax.dividends.grossILS)}</span></span>
+                                                            <span className="text-xs font-semibold text-red-400">מס: -{fmt(tax.dividends.withheldUSD, tax.dividends.withheldILS)}</span>
+                                                            <span className="text-xs font-semibold text-emerald-400">נטו: {fmt(tax.dividends.netUSD, tax.dividends.netILS)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Capital Gains Tax */}
+                                        {hasSales && (
+                                            <div className="mb-4">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <span style={{ fontSize: '14px' }}>📊</span>
+                                                    <h4 className="text-sm font-semibold text-indigo-300">מס רווחי הון ממומשים (25%)</h4>
+                                                </div>
+                                                <div style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '12px', padding: '16px' }}>
+                                                    {tax.capitalGains.details.map((s, i) => {
+                                                        const isGain = (currency === 'ILS' ? s.gainILS : s.gainUSD) >= 0;
+                                                        return (
+                                                            <div key={i} className="tax-row">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs font-semibold text-gray-300" style={{ minWidth: '50px' }}>{s.symbol}</span>
+                                                                    <span className="text-xs text-gray-500">{s.date}</span>
+                                                                    <span className="text-xs text-gray-500">({s.shares} מניות)</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-4" dir="ltr">
+                                                                    <span className="text-xs text-gray-400">תמורה: <span className="text-gray-200">{fmt(s.proceedsUSD, s.proceedsILS)}</span></span>
+                                                                    <span className="text-xs text-gray-400">עלות: <span className="text-gray-200">{fmt(s.costBasisUSD, s.costBasisILS)}</span></span>
+                                                                    <span className={`text-xs font-medium ${isGain ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                                        {isGain ? 'רווח' : 'הפסד'}: {(currency === 'ILS' ? s.gainILS : s.gainUSD) >= 0 ? '+' : ''}{fmt(s.gainUSD, s.gainILS)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                    <div className="tax-row" style={{ borderTop: '1px solid rgba(99, 102, 241, 0.2)', marginTop: '8px', paddingTop: '12px' }}>
+                                                        <span className="text-xs font-semibold text-gray-300">סה״כ רווח ממומש</span>
+                                                        <div className="flex items-center gap-4" dir="ltr">
+                                                            <span className={`text-xs font-semibold ${(currency === 'ILS' ? tax.capitalGains.gainILS : tax.capitalGains.gainUSD) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                                {(currency === 'ILS' ? tax.capitalGains.gainILS : tax.capitalGains.gainUSD) >= 0 ? '+' : ''}{fmt(tax.capitalGains.gainUSD, tax.capitalGains.gainILS)}
+                                                            </span>
+                                                            <span className="text-xs font-semibold text-red-400">
+                                                                מס: {fmt(tax.capitalGains.taxUSD, tax.capitalGains.taxILS)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Total Tax */}
+                                        <div className="tax-total-row">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span style={{ fontSize: '16px' }}>🏛️</span>
+                                                    <span className="text-sm font-bold text-white">סה״כ חבות מס משוערת</span>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-lg font-bold" style={{ color: '#a78bfa' }}>
+                                                        {fmt(tax.totalTaxUSD, tax.totalTaxILS)}
+                                                    </span>
+                                                    {currency === 'USD' && (
+                                                        <span className="text-xs text-gray-500">
+                                                            (₪{tax.totalTaxILS.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                                        </span>
+                                                    )}
+                                                    {currency === 'ILS' && (
+                                                        <span className="text-xs text-gray-500">
+                                                            (${tax.totalTaxUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+
+                    {/* Positions Table */}
+                    <div className="bg-[#111827] rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
+                        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-white">נכסים בתיק</h2>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right text-xs compact-table">
+                                <thead className="text-gray-400 bg-gray-900/50 border-b border-gray-800 sticky-thead">
+                                    <tr>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'symbol' ? ' active-sort' : ''}`} onClick={() => handleSort('symbol')}><span className="sort-arrow">{getSortArrow('symbol')}</span>נכס / סמל</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'date' ? ' active-sort' : ''}`} onClick={() => handleSort('date')}><span className="sort-arrow">{getSortArrow('date')}</span>תאריך קנייה</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'shares' ? ' active-sort' : ''}`} onClick={() => handleSort('shares')}><span className="sort-arrow">{getSortArrow('shares')}</span>כמות</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'purchasePrice' ? ' active-sort' : ''}`} onClick={() => handleSort('purchasePrice')}><span className="sort-arrow">{getSortArrow('purchasePrice')}</span>שער קנייה</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'currentPrice' ? ' active-sort' : ''}`} onClick={() => handleSort('currentPrice')}><span className="sort-arrow">{getSortArrow('currentPrice')}</span>מחיר נוכחי</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'dailyChange' ? ' active-sort' : ''}`} onClick={() => handleSort('dailyChange')}><span className="sort-arrow">{getSortArrow('dailyChange')}</span>שינוי יומי</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'ytd' ? ' active-sort' : ''}`} onClick={() => handleSort('ytd')}><span className="sort-arrow">{getSortArrow('ytd')}</span>מתחילת שנה</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'dividends' ? ' active-sort' : ''}`} onClick={() => handleSort('dividends')}><span className="sort-arrow">{getSortArrow('dividends')}</span>דיבידנדים</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'value' ? ' active-sort' : ''}`} onClick={() => handleSort('value')}><span className="sort-arrow">{getSortArrow('value')}</span>שווי נוכחי</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'weight' ? ' active-sort' : ''}`} onClick={() => handleSort('weight')}><span className="sort-arrow">{getSortArrow('weight')}</span>משקל בתיק</th>
+                                        <th className={`px-2 py-3 font-medium whitespace-nowrap sortable-th${sortColumn === 'profit' ? ' active-sort' : ''}`} onClick={() => handleSort('profit')}><span className="sort-arrow">{getSortArrow('profit')}</span>רווח / הפסד</th>
+                                        <th className="px-2 py-3 font-medium text-center whitespace-nowrap">פעולות</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800/50">
+                                    {/* Cash Row */}
+                                    <tr className="hover:bg-gray-800/30 transition-colors">
+                                        <td className="px-2 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                                                    {currency === 'USD' ? '$' : '₪'}
+                                                </div>
+                                                <span className="font-semibold text-gray-200">מזומן</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 text-gray-500">
+                                            {cashRate ? `₪${cashRate.toFixed(2)}` : '-'}
+                                        </td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 font-bold text-white">
+                                            {isEditingCash ? (
+                                                <div className="flex items-center gap-2 justify-end" dir="ltr">
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        value={tempCash}
+                                                        placeholder="$"
+                                                        onChange={(e) => setTempCash(e.target.value)}
+                                                        className="w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-portfolio"
+                                                        autoFocus
+                                                    />
+                                                    <span className="text-gray-500 text-xs">@</span>
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        value={tempCashRate}
+                                                        placeholder="₪ Rate"
+                                                        onChange={(e) => setTempCashRate(e.target.value)}
+                                                        className="w-16 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-portfolio"
+                                                    />
+                                                    <button onClick={() => {
+                                                        saveToDb(undefined, parseFloat(tempCash) || 0, undefined, undefined, parseFloat(tempCashRate) || exchangeRate, undefined);
+                                                        setIsEditingCash(false);
+                                                    }} className="text-green-400 hover:text-green-300">✓</button>
+                                                    <button onClick={() => { setIsEditingCash(false); }} className="text-red-400 hover:text-red-300">✕</button>
+                                                </div>
+                                            ) : isAddingCash ? (
+                                                <div className="flex items-center gap-2 justify-end" dir="ltr">
+                                                    <span className="text-emerald-400 font-bold">+</span>
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        value={tempAddCash}
+                                                        placeholder="$ amount"
+                                                        onChange={(e) => setTempAddCash(e.target.value)}
+                                                        className="w-20 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400"
+                                                        autoFocus
+                                                    />
+                                                    <span className="text-gray-500 text-xs">@</span>
+                                                    <input
+                                                        type="date"
+                                                        value={tempAddCashDate}
+                                                        onChange={(e) => setTempAddCashDate(e.target.value)}
+                                                        className="w-28 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400 custom-date-input"
+                                                        style={{ colorScheme: 'dark' }}
+                                                        title="תאריך להשגת השער, או השאר ריק להזנה ידנית/נוכחי"
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        value={tempAddCashRate}
+                                                        placeholder="₪ Rate"
+                                                        onChange={(e) => {
+                                                            setTempAddCashRate(e.target.value);
+                                                            setTempAddCashDate(''); // איפוס התאריך אם מזינים שער ידני
+                                                        }}
+                                                        className="w-16 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400"
+                                                        disabled={!!tempAddCashDate} // חסימת השער אם נבחר תאריך
+                                                    />
+                                                    <button onClick={handleAddCashSubmit} className="text-green-400 hover:text-green-300">✓</button>
+                                                    <button onClick={() => setIsAddingCash(false)} className="text-red-400 hover:text-red-300">✕</button>
+                                                </div>
+                                            ) : (
+                                                formatMoney(currency === 'ILS' ? cash * exchangeRate : cash)
+                                            )}
+                                        </td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 text-gray-400 font-medium">
+                                            {portfolioCurrentDisplay > 0 ? (((currency === 'ILS' ? cash * exchangeRate : cash) / portfolioCurrentDisplay) * 100).toFixed(2) + '%' : '0.00%'}
+                                        </td>
+                                        <td className="px-2 py-3 text-gray-500">-</td>
+                                        <td className="px-2 py-3 text-center">
+                                            {!isEditingCash && !isAddingCash && (
+                                                <div className="flex items-center justify-center gap-3">
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsAddingCash(true);
+                                                            setTempAddCash('');
+                                                            setTempAddCashRate(exchangeRate.toString());
+                                                            setTempAddCashDate('');
+                                                        }}
+                                                        className="text-emerald-400 hover:text-emerald-300 text-sm font-medium"
+                                                        title="הפקד/משוך מזומן (יחושב כשער ממוצע מתוקלל)"
+                                                    >
+                                                        + הוסף
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditingCash(true);
+                                                            setTempCash(cash.toString());
+                                                            setTempCashRate(cashRate !== null ? cashRate.toString() : exchangeRate.toString());
+                                                        }}
+                                                        className="text-portfolio hover:text-blue-400 text-sm"
+                                                        title="דרוס/ערוך סכום בדולרים ושער המרה"
+                                                    >
+                                                        ערוך
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </td>
+                                    </tr>
+
+                                    {positions.filter(pos => getPositionStats(pos).totalShares > 0).slice().sort((a, b) => {
+                                        const statsA = getPositionStats(a);
+                                        const statsB = getPositionStats(b);
+                                        const rateAtPurchaseA = currency === 'ILS' ? getRateAtDate(statsA.earliestDate, exchangeRate) : 1;
+                                        const rateAtPurchaseB = currency === 'ILS' ? getRateAtDate(statsB.earliestDate, exchangeRate) : 1;
+                                        const rateNow = currency === 'ILS' ? exchangeRate : 1;
+                                        const valueA = statsA.totalShares * a.currentPrice * rateNow;
+                                        const valueB = statsB.totalShares * b.currentPrice * rateNow;
+                                        let cmp = 0;
+                                        switch (sortColumn) {
+                                            case 'symbol': cmp = a.symbol.localeCompare(b.symbol); break;
+                                            case 'date': cmp = (statsA.earliestDate || '').localeCompare(statsB.earliestDate || ''); break;
+                                            case 'shares': cmp = statsA.totalShares - statsB.totalShares; break;
+                                            case 'purchasePrice': cmp = (statsA.avgPrice * rateAtPurchaseA) - (statsB.avgPrice * rateAtPurchaseB); break;
+                                            case 'currentPrice': cmp = (a.currentPrice * rateNow) - (b.currentPrice * rateNow); break;
+                                            case 'dailyChange': cmp = ((a.dailyChangePercent || 0)) - ((b.dailyChangePercent || 0)); break;
+                                            case 'ytd': {
+                                                const ytdA = a.ytdPrice > 0 ? ((a.currentPrice - a.ytdPrice) / a.ytdPrice) * 100 : 0;
+                                                const ytdB = b.ytdPrice > 0 ? ((b.currentPrice - b.ytdPrice) / b.ytdPrice) * 100 : 0;
+                                                cmp = ytdA - ytdB; break;
+                                            }
+                                            case 'dividends': cmp = (statsA.totalDividends * rateNow) - (statsB.totalDividends * rateNow); break;
+                                            case 'value': cmp = valueA - valueB; break;
+                                            case 'weight': cmp = valueA - valueB; break; // weight is proportional to value
+                                            case 'profit': {
+                                                const profitA = valueA - (statsA.totalCost * rateAtPurchaseA);
+                                                const profitB = valueB - (statsB.totalCost * rateAtPurchaseB);
+                                                cmp = profitA - profitB; break;
+                                            }
+                                            default: cmp = valueA - valueB;
+                                        }
+                                        return sortDirection === 'asc' ? cmp : -cmp;
+                                    }).map(pos => {
+                                        const stats = getPositionStats(pos);
+                                        const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
+                                        const rateNow = currency === 'ILS' ? exchangeRate : 1;
+
+                                        const cost = stats.totalCost * rateAtPurchase;
+                                        const value = stats.totalShares * pos.currentPrice * rateNow;
+                                        const profit = value - cost;
+                                        const profitPct = cost > 0 ? (profit / cost) * 100 : 0;
+                                        const isEditing = editingStockId === pos.id;
+                                        const isExpanded = expandedStocks[pos.id];
+                                        const hasManyTxns = stats.transactions.length > 1;
+                                        const divTotal = stats.totalDividends;
+
+                                        return React.createElement(React.Fragment, { key: pos.id },
+                                            React.createElement('tr', { className: 'hover:bg-gray-800/30 transition-colors' + (isExpanded ? ' bg-gray-800/20' : '') },
+                                                React.createElement('td', { className: 'px-2 py-3' },
+                                                    React.createElement('div', { className: 'flex items-center gap-3' },
+                                                        React.createElement('img', {
+                                                            src: `https://logo.clearbit.com/${pos.symbol.toLowerCase()}.com`,
+                                                            className: 'stock-logo',
+                                                            onError: (e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; },
+                                                            alt: pos.symbol
+                                                        }),
+                                                        React.createElement('div', { className: 'stock-logo-fallback', style: { display: 'none' } }, pos.symbol.substring(0, 2)),
+                                                        React.createElement('div', { className: 'flex flex-col' },
+                                                            React.createElement('span', { className: 'font-semibold text-gray-200' }, pos.symbol),
+                                                            hasManyTxns && React.createElement('button', {
+                                                                onClick: () => setExpandedStocks(prev => ({ ...prev, [pos.id]: !prev[pos.id] })),
+                                                                className: 'text-xs text-portfolio hover:text-blue-400 text-right'
+                                                            }, isExpanded ? '▲ הסתר עסקאות' : '▼ ' + stats.transactions.length + ' עסקאות')
+                                                        )
+                                                    )
+                                                ),
+                                                React.createElement('td', { className: 'px-2 py-3 text-gray-400' }, stats.earliestDate),
+                                                React.createElement('td', { className: 'px-2 py-3 text-gray-300' },
+                                                    isEditing ?
+                                                        React.createElement('div', { dir: 'ltr', className: 'flex justify-end' },
+                                                            React.createElement('input', { type: 'number', step: 'any', value: editStockData.shares, onChange: (e) => setEditStockData({ ...editStockData, shares: e.target.value }), className: 'w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-portfolio' })
+                                                        ) : stats.totalShares
+                                                ),
+                                                React.createElement('td', { className: 'px-2 py-3 text-gray-400' },
+                                                    isEditing ?
+                                                        React.createElement('div', { dir: 'ltr', className: 'flex justify-end' },
+                                                            React.createElement('input', { type: 'number', step: 'any', value: editStockData.price, onChange: (e) => setEditStockData({ ...editStockData, price: e.target.value }), className: 'w-24 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-portfolio' })
+                                                        ) : formatMoney(stats.avgPrice * rateAtPurchase)
+                                                ),
+                                                React.createElement('td', { className: 'px-2 py-3 text-gray-200 font-medium' }, formatMoney(pos.currentPrice * rateNow)),
+                                                React.createElement('td', { className: 'px-2 py-3' },
+                                                    React.createElement('div', { className: `flex flex-col ${pos.dailyChange !== undefined && pos.dailyChange !== null ? (pos.dailyChange >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-500'}`, dir: 'ltr' },
+                                                        React.createElement('span', { className: 'font-medium text-right' }, pos.dailyChange !== undefined && pos.dailyChange !== null ? (pos.dailyChange >= 0 ? '+' : '') + formatMoney(pos.dailyChange * stats.totalShares * rateNow) : '-'),
+                                                        React.createElement('span', { className: 'text-xs text-right' }, pos.dailyChangePercent !== undefined && pos.dailyChangePercent !== null ? (pos.dailyChangePercent >= 0 ? '+' : '') + pos.dailyChangePercent.toFixed(2) + '%' : '-')
+                                                    )
+                                                ),
+                                                React.createElement('td', { className: 'px-2 py-3' },
+                                                    React.createElement('div', { className: `flex flex-col ${pos.ytdPrice ? (pos.currentPrice - pos.ytdPrice >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-500'}`, dir: 'ltr' },
+                                                        React.createElement('span', { className: 'font-medium text-right' }, pos.ytdPrice ? (pos.currentPrice - pos.ytdPrice >= 0 ? '+' : '') + formatMoney((pos.currentPrice - pos.ytdPrice) * stats.totalShares * rateNow) : '-'),
+                                                        React.createElement('span', { className: 'text-xs text-right' }, pos.ytdPrice > 0 ? (pos.currentPrice - pos.ytdPrice >= 0 ? '+' : '') + (((pos.currentPrice - pos.ytdPrice) / pos.ytdPrice) * 100).toFixed(2) + '%' : '-')
+                                                    )
+                                                ),
+                                                // Dividends column
+                                                React.createElement('td', { className: 'px-2 py-3' },
+                                                    React.createElement('div', { className: 'flex flex-col items-end' },
+                                                        divTotal > 0 ? React.createElement('span', { className: 'text-emerald-400 font-medium' }, '+' + formatMoney(divTotal * rateNow)) : React.createElement('span', { className: 'text-gray-500' }, '-'),
+                                                        dividendForm === pos.id ?
+                                                            React.createElement('div', { className: 'flex items-center gap-1 mt-1', dir: 'ltr' },
+                                                                React.createElement('input', { type: 'number', step: 'any', placeholder: 'Total $', value: tempDivAmount, onChange: e => setTempDivAmount(e.target.value), className: 'w-20 bg-gray-900 border border-emerald-500/50 rounded px-1 py-0.5 text-white text-xs focus:outline-none' }),
+                                                                React.createElement('input', { type: 'date', value: tempDivDate, onChange: e => setTempDivDate(e.target.value), className: 'w-24 bg-gray-900 border border-emerald-500/50 rounded px-1 py-0.5 text-white text-xs focus:outline-none', style: { colorScheme: 'dark' } }),
+                                                                React.createElement('button', { onClick: () => handleAddDividend(pos.id), className: 'text-green-400 hover:text-green-300 text-xs' }, '✓'),
+                                                                React.createElement('button', { onClick: () => setDividendForm(null), className: 'text-red-400 hover:text-red-300 text-xs' }, '✕')
+                                                            )
+                                                        : React.createElement('button', {
+                                                            onClick: () => { setDividendForm(pos.id); setTempDivAmount(''); setTempDivDate(''); },
+                                                            className: 'text-xs text-emerald-400 hover:text-emerald-300 mt-0.5'
+                                                        }, '+ הוסף')
+                                                    )
+                                                ),
+                                                React.createElement('td', { className: 'px-2 py-3 font-bold text-white' }, formatMoney(value)),
+                                                React.createElement('td', { className: 'px-2 py-3' },
+                                                    React.createElement('div', { className: 'flex flex-col gap-1' },
+                                                        React.createElement('span', { className: 'text-gray-300 font-medium text-xs' },
+                                                            portfolioCurrentDisplay > 0 ? ((value / portfolioCurrentDisplay) * 100).toFixed(2) + '%' : '0.00%'
+                                                        ),
+                                                        React.createElement('div', { className: 'weight-bar-container' },
+                                                            React.createElement('div', {
+                                                                className: 'weight-bar-fill',
+                                                                style: { width: (portfolioCurrentDisplay > 0 ? Math.min(((value / portfolioCurrentDisplay) * 100), 100) : 0) + '%' }
+                                                            })
+                                                        )
+                                                    )
+                                                ),
+                                                React.createElement('td', { className: 'px-2 py-3' },
+                                                    React.createElement('div', { className: `flex flex-col ${profit >= 0 ? 'text-green-400' : 'text-red-400'}` },
+                                                        React.createElement('span', { className: 'font-medium' }, (profit >= 0 ? '+' : '') + formatMoney(profit)),
+                                                        React.createElement('span', { className: 'text-xs' }, (profitPct >= 0 ? '+' : '') + profitPct.toFixed(2) + '%')
+                                                    )
+                                                ),
+                                                React.createElement('td', { className: 'px-2 py-3 text-center' },
+                                                    isEditing ?
+                                                        React.createElement('div', { className: 'flex items-center justify-center gap-3' },
+                                                            React.createElement('button', { onClick: () => saveStockEdit(pos.id, stats.earliestDate), className: 'text-green-400 hover:text-green-300', title: 'שמור' }, '✓'),
+                                                            React.createElement('button', { onClick: cancelStockEdit, className: 'text-red-400 hover:text-red-300', title: 'בטל' }, '✕')
+                                                        )
+                                                    : React.createElement('div', { className: 'flex items-center justify-center gap-2' },
+                                                        React.createElement('button', { onClick: () => startEditingStock(pos), className: 'p-2 text-gray-500 hover:text-portfolio hover:bg-blue-500/10 rounded-lg transition-colors', title: 'ערוך' }, React.createElement(IconEdit)),
+                                                        React.createElement('button', { onClick: () => removePosition(pos.id), className: 'p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors', title: 'מחק' }, React.createElement(IconTrash))
+                                                    )
+                                                )
+                                            ),
+                                            // Expanded transactions rows
+                                            isExpanded && stats.transactions.map(txn => {
+                                                const txnRateAtPurchase = currency === 'ILS' ? getRateAtDate(txn.date, exchangeRate) : 1;
+                                                const txnCost = txn.shares * txn.price * txnRateAtPurchase;
+                                                const txnValue = txn.shares * pos.currentPrice * rateNow;
+                                                const txnProfit = txnValue - txnCost;
+                                                const txnProfitPct = txnCost > 0 ? (txnProfit / txnCost) * 100 : 0;
+                                                return React.createElement('tr', { key: txn.id, className: 'bg-gray-800/40 border-r-2 border-portfolio/30' },
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '↳ עסקה'),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, txn.date),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-400' }, txn.shares),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, formatMoney(txn.price * txnRateAtPurchase)),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs font-bold text-gray-300' }, formatMoney(txnValue)),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs' },
+                                                        React.createElement('span', { className: txnProfit >= 0 ? 'text-green-400' : 'text-red-400' }, (txnProfit >= 0 ? '+' : '') + formatMoney(txnProfit))
+                                                    ),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-center' },
+                                                        stats.transactions.length > 1 ?
+                                                            React.createElement('button', { onClick: () => removeTransaction(pos.id, txn.id), className: 'text-xs text-gray-500 hover:text-red-400', title: 'מחק עסקה' }, '✕')
+                                                        : null
+                                                    )
+                                                );
+                                            }),
+                                            // Expanded dividends rows
+                                            isExpanded && (pos.dividends || []).length > 0 && (pos.dividends || []).map(div =>
+                                                React.createElement('tr', { key: div.id, className: 'bg-emerald-900/10 border-r-2 border-emerald-500/30' },
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-emerald-500', colSpan: 3 }, '💰 דיבידנד ' + div.date),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-emerald-400', colSpan: 2 }, div.amountPerShare ? ('$' + div.amountPerShare.toFixed(4) + '/share') : ('$' + (div.amount || 0).toFixed(2))),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-emerald-400 font-medium', colSpan: 5 }, '+' + formatMoney((div.totalAmount || div.amount || 0) * rateNow)),
+                                                    React.createElement('td', { className: 'px-2 py-2' }, ''),
+                                                    React.createElement('td', { className: 'px-2 py-2 text-center' },
+                                                        React.createElement('button', { onClick: () => removeDividend(pos.id, div.id), className: 'text-xs text-gray-500 hover:text-red-400' }, '✕')
+                                                    )
+                                                )
+                                            )
+                                        );
+                                    })}
+
+                                    {/* Totals Row */}
+                                    {(() => {
+                                        const rateNow = currency === 'ILS' ? exchangeRate : 1;
+                                        let totalDailyChange = 0;
+                                        let totalValue = currency === 'ILS' ? cash * exchangeRate : cash;
+                                        let totalProfit = 0;
+                                        let totalCost = 0;
+
+                                        positions.forEach(pos => {
+                                            const stats = getPositionStats(pos);
+                                            const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
+                                            const cost = stats.totalCost * rateAtPurchase;
+                                            const value = stats.totalShares * pos.currentPrice * rateNow;
+                                            totalValue += value;
+                                            totalCost += cost;
+                                            totalProfit += (value - cost);
+                                            if (pos.dailyChange !== undefined && pos.dailyChange !== null) {
+                                                totalDailyChange += pos.dailyChange * stats.totalShares * rateNow;
+                                            }
+                                        });
+
+                                        return React.createElement('tr', { className: 'totals-row font-bold' },
+                                            React.createElement('td', { className: 'px-2 py-3 text-white text-base' }, '📊 סה\"כ'),
+                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
+                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
+                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
+                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
+                                            React.createElement('td', { className: 'px-2 py-3' },
+                                                React.createElement('div', { className: `flex flex-col ${totalDailyChange >= 0 ? 'text-green-400' : 'text-red-400'}`, dir: 'ltr' },
+                                                    React.createElement('span', { className: 'font-bold text-right' }, (totalDailyChange >= 0 ? '+' : '') + formatMoney(totalDailyChange)),
+                                                    React.createElement('span', { className: 'text-xs text-right' }, totalValue - (currency === 'ILS' ? cash * exchangeRate : cash) > 0 ? (totalDailyChange >= 0 ? '+' : '') + ((totalDailyChange / (totalValue - (currency === 'ILS' ? cash * exchangeRate : cash) - totalDailyChange)) * 100).toFixed(2) + '%' : '')
+                                                )
+                                            ),
+                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
+                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
+                                            React.createElement('td', { className: 'px-2 py-3 text-white' }, formatMoney(totalValue)),
+                                            React.createElement('td', { className: 'px-2 py-3 text-gray-300' }, '100%'),
+                                            React.createElement('td', { className: 'px-2 py-3' },
+                                                React.createElement('div', { className: `flex flex-col ${totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}` },
+                                                    React.createElement('span', { className: 'font-bold' }, (totalProfit >= 0 ? '+' : '') + formatMoney(totalProfit)),
+                                                    React.createElement('span', { className: 'text-xs' }, totalCost > 0 ? (totalProfit >= 0 ? '+' : '') + ((totalProfit / totalCost) * 100).toFixed(2) + '%' : '')
+                                                )
+                                            ),
+                                            React.createElement('td', { className: 'px-2 py-3' }, '')
+                                        );
+                                    })()}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Add New Position Form */}
+                        <div className="p-6 bg-gray-900/50 border-t border-gray-800">
+                            <h3 className="text-sm font-semibold text-gray-400 mb-4">הוסף נכס חדש</h3>
+                            <form onSubmit={handleAddPosition} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div>
+                                    <input required type="text" placeholder="סמל (למשל AAPL)" value={newSymbol} onChange={e => setNewSymbol(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
+                                </div>
+                                <div>
+                                    <input required type="number" step="any" placeholder="כמות מניות" value={newShares} onChange={e => setNewShares(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
+                                </div>
+                                <div>
+                                    <input required type="number" step="any" placeholder={`שער קנייה ב-${currency}`} value={newPrice} onChange={e => setNewPrice(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
+                                </div>
+                                <div>
+                                    <input required type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm custom-date-input" style={{ colorScheme: 'dark' }} />
+                                </div>
+                                <div>
+                                    <button type="submit" className="w-full bg-portfolio hover:bg-blue-600 text-white font-medium rounded-lg px-4 py-2.5 transition-colors shadow-lg shadow-blue-500/20">
+                                        הוסף לתיק
+                                    </button>
+                                </div>
+                            </form>
+
+                            {/* Excel Import */}
+                            <div className="mt-4 pt-4 border-t border-gray-700/50 flex items-center gap-4">
+                                <label className="cursor-pointer flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg px-4 py-2.5 transition-colors text-sm font-medium">
+                                    <span>📥 ייבוא מאקסל</span>
+                                    <input
+                                        type="file"
+                                        accept=".xlsx,.xls,.csv"
+                                        onChange={handleExcelImport}
+                                        className="hidden"
+                                    />
+                                </label>
+                                <span className="text-xs text-gray-500">העלה קובץ XLSX עם פירוט תנועות (תאריך, סוג פעולה, שם הנייר, כמות, מחיר)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
