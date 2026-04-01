@@ -6,8 +6,8 @@
 // =====================================================================
 
 /**
- * Initialize Firebase and sign in anonymously.
- * @param {Object} ctx - { firebaseConfig, setDbInstance, setUser, setCloudError, setPositions, setDbReady, initialPositions }
+ * Initialize Firebase and set up auth state listener.
+ * @param {Object} ctx - { firebaseConfig, setDbInstance, setUser, setAuthReady, setCloudError, setPositions, setDbReady, initialPositions }
  */
 window.initFirebaseAuth = function (ctx) {
     var initFirebase = async function () {
@@ -22,8 +22,10 @@ window.initFirebaseAuth = function (ctx) {
             var db = window.firebase.firestore();
             window.__app_id = ctx.firebaseConfig.projectId;
             ctx.setDbInstance(db);
-            await auth.signInAnonymously();
-            auth.onAuthStateChanged(function (u) { ctx.setUser(u); });
+            auth.onAuthStateChanged(function (u) {
+                ctx.setUser(u);
+                ctx.setAuthReady(true);
+            });
         } catch (error) {
             console.error("Firebase init failed:", error);
             var errMsg = error.code || error.message || 'Unknown connection error';
@@ -31,9 +33,111 @@ window.initFirebaseAuth = function (ctx) {
             ctx.setCloudError(errMsg);
             ctx.setPositions(ctx.initialPositions);
             ctx.setDbReady(true);
+            ctx.setAuthReady(true);
         }
     };
     initFirebase();
+};
+
+/**
+ * Sign in with email and password.
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise}
+ */
+window.signInWithEmail = function (email, password) {
+    return window.firebase.auth().signInWithEmailAndPassword(email, password);
+};
+
+/**
+ * Register a new account with email and password.
+ * @param {string} email
+ * @param {string} password
+ * @returns {Promise}
+ */
+window.registerWithEmail = function (email, password) {
+    return window.firebase.auth().createUserWithEmailAndPassword(email, password);
+};
+
+/**
+ * Sign in with Google popup.
+ * @returns {Promise}
+ */
+window.signInWithGoogle = function () {
+    var provider = new window.firebase.auth.GoogleAuthProvider();
+    return window.firebase.auth().signInWithPopup(provider);
+};
+
+/**
+ * Sign out the current user.
+ * @returns {Promise}
+ */
+window.signOutUser = function () {
+    return window.firebase.auth().signOut();
+};
+
+/**
+ * Import portfolio data from an anonymous user account into the current user's account.
+ * Reads the anonymous user's portfolio/main document and writes it to the current user's document.
+ * Also copies all daily snapshots found under the anonymous user.
+ *
+ * @param {Object} ctx - { user, dbInstance }
+ * @param {string} anonymousUid - the UID of the anonymous user to import from
+ * @returns {Promise<{ok: boolean, message: string}>}
+ */
+window.importFromAnonymousUser = async function (ctx, anonymousUid) {
+    if (!ctx.user || !ctx.dbInstance) return { ok: false, message: 'לא מחובר לענן' };
+    if (!anonymousUid || !anonymousUid.trim()) return { ok: false, message: 'יש להזין UID' };
+
+    var db = ctx.dbInstance;
+    var appId = window.__app_id || 'default-app-id';
+    var srcUid = anonymousUid.trim();
+    var dstUid = ctx.user.uid;
+
+    if (srcUid === dstUid) return { ok: false, message: 'ה-UID זהה לחשבון הנוכחי' };
+
+    try {
+        // Read source portfolio
+        var srcRef = db.collection('artifacts').doc(appId)
+            .collection('users').doc(srcUid).collection('portfolio').doc('main');
+        var srcSnap = await srcRef.get();
+
+        if (!srcSnap.exists) {
+            return { ok: false, message: 'לא נמצא תיק השקעות עבור ה-UID שהוזן' };
+        }
+
+        var portfolioData = srcSnap.data();
+
+        // Write to destination
+        var dstRef = db.collection('artifacts').doc(appId)
+            .collection('users').doc(dstUid).collection('portfolio').doc('main');
+        await dstRef.set(portfolioData, { merge: false });
+
+        // Copy daily snapshots
+        try {
+            var srcSnapshots = await db.collection('artifacts').doc(appId)
+                .collection('users').doc(srcUid).collection('portfolio')
+                .doc('snapshots').collection('daily').get();
+
+            if (!srcSnapshots.empty) {
+                var dstSnapshotCol = db.collection('artifacts').doc(appId)
+                    .collection('users').doc(dstUid).collection('portfolio')
+                    .doc('snapshots').collection('daily');
+                var batch = db.batch();
+                srcSnapshots.forEach(function (doc) {
+                    batch.set(dstSnapshotCol.doc(doc.id), doc.data());
+                });
+                await batch.commit();
+            }
+        } catch (e) {
+            console.warn('Failed to copy snapshots (portfolio data was imported successfully):', e);
+        }
+
+        return { ok: true, message: 'התיק יובא בהצלחה! המידע יטען מחדש.' };
+    } catch (e) {
+        console.error('Import failed:', e);
+        return { ok: false, message: 'שגיאה בייבוא: ' + (e.message || e.code || 'Unknown error') };
+    }
 };
 
 /**

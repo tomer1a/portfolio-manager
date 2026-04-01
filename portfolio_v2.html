@@ -106,6 +106,170 @@
         // References to external utility functions (from js/*.js files)
         const { getPositionStats, getJaggedNoise, normalizeSymbol, firebaseConfig, initialPositions } = window;
 
+        // --- Login Screen Component ---
+        const LoginScreen = ({ onLogin }) => {
+            const [mode, setMode] = useState('login'); // 'login' | 'register'
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [confirmPassword, setConfirmPassword] = useState('');
+            const [error, setError] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const hebrewError = (code) => {
+                const map = {
+                    'auth/user-not-found': 'לא נמצא משתמש עם כתובת דוא"ל זו',
+                    'auth/wrong-password': 'סיסמה שגויה',
+                    'auth/invalid-credential': 'דוא"ל או סיסמה שגויים',
+                    'auth/email-already-in-use': 'כתובת הדוא"ל כבר רשומה במערכת',
+                    'auth/weak-password': 'הסיסמה חלשה מדי — נדרשים לפחות 6 תווים',
+                    'auth/invalid-email': 'כתובת הדוא"ל אינה תקינה',
+                    'auth/too-many-requests': 'יותר מדי ניסיונות כניסה. נסה שוב מאוחר יותר',
+                    'auth/popup-closed-by-user': 'החלון נסגר לפני השלמת הכניסה',
+                    'auth/network-request-failed': 'בעיית רשת. בדוק את החיבור לאינטרנט',
+                };
+                return map[code] || 'אירעה שגיאה, אנא נסה שוב';
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setError('');
+                if (mode === 'register' && password !== confirmPassword) {
+                    setError('הסיסמאות אינן תואמות');
+                    return;
+                }
+                setLoading(true);
+                try {
+                    var result;
+                    if (mode === 'login') {
+                        result = await window.signInWithEmail(email, password);
+                    } else {
+                        result = await window.registerWithEmail(email, password);
+                    }
+                    onLogin(result.user);
+                } catch (err) {
+                    setError(hebrewError(err.code));
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleGoogle = async () => {
+                setError('');
+                setLoading(true);
+                try {
+                    var result = await window.signInWithGoogle();
+                    onLogin(result.user);
+                } catch (err) {
+                    setError(hebrewError(err.code));
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-[#030712] p-4">
+                    <div className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8">
+                        <div className="text-center mb-8">
+                            <h1 className="text-2xl font-bold text-white mb-1">ניהול תיק השקעות</h1>
+                            <p className="text-gray-400 text-sm">{mode === 'login' ? 'התחבר לחשבונך' : 'צור חשבון חדש'}</p>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">כתובת דוא"ל</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    placeholder="you@example.com"
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">סיסמה</label>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    placeholder="לפחות 6 תווים"
+                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
+                                    dir="ltr"
+                                />
+                            </div>
+
+                            {mode === 'register' && (
+                                <div>
+                                    <label className="block text-sm text-gray-400 mb-1">אימות סיסמה</label>
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        required
+                                        placeholder="הכנס שוב את הסיסמה"
+                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
+                                        dir="ltr"
+                                    />
+                                </div>
+                            )}
+
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-2.5 text-red-400 text-sm">
+                                    {error}
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors"
+                            >
+                                {loading ? 'מתחבר...' : mode === 'login' ? 'התחבר' : 'צור חשבון'}
+                            </button>
+                        </form>
+
+                        <div className="relative my-5">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-700"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="px-3 bg-gray-900 text-gray-500">או</span>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={handleGoogle}
+                            disabled={loading}
+                            className="w-full flex items-center justify-center gap-3 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 text-white font-medium py-2.5 rounded-lg transition-colors"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                                <g fill="none" fillRule="evenodd">
+                                    <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+                                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+                                    <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                                </g>
+                            </svg>
+                            המשך עם Google
+                        </button>
+
+                        <p className="text-center text-sm text-gray-500 mt-6">
+                            {mode === 'login' ? 'אין לך חשבון עדיין?' : 'כבר יש לך חשבון?'}{' '}
+                            <button
+                                onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
+                                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                            >
+                                {mode === 'login' ? 'הירשם כאן' : 'התחבר כאן'}
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
         // --- Main App Component ---
         const App = () => {
             // State
@@ -162,8 +326,15 @@
             const [chartView, setChartView] = useState('performance'); // 'performance' or 'allocation'
             const [cashDeposits, setCashDeposits] = useState([]);
 
+            // Import from anonymous user
+            const [importUid, setImportUid] = useState('');
+            const [importStatus, setImportStatus] = useState(null); // { ok, message }
+            const [importLoading, setImportLoading] = useState(false);
+            const [importConfirm, setImportConfirm] = useState(false);
+
             // Firebase Cloud States
             const [user, setUser] = useState(null);
+            const [authReady, setAuthReady] = useState(false);
             const [dbInstance, setDbInstance] = useState(null);
             const [dbReady, setDbReady] = useState(false);
             const [cloudError, setCloudError] = useState('');
@@ -198,7 +369,7 @@
             // 1. Initialize Firebase (delegates to api.js)
             useEffect(() => {
                 window.initFirebaseAuth({
-                    firebaseConfig, setDbInstance, setUser, setCloudError,
+                    firebaseConfig, setDbInstance, setUser, setAuthReady, setCloudError,
                     setPositions, setDbReady, initialPositions
                 });
             }, []);
@@ -450,10 +621,22 @@
                 return null;
             };
 
-            if (!dbReady) {
+            if (!authReady) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-[#030712] text-white">
                         <div className="animate-pulse text-xl">טוען את המערכת...</div>
+                    </div>
+                );
+            }
+
+            if (!user) {
+                return <LoginScreen onLogin={setUser} />;
+            }
+
+            if (!dbReady) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-[#030712] text-white">
+                        <div className="animate-pulse text-xl">טוען נתונים...</div>
                     </div>
                 );
             }
@@ -470,10 +653,10 @@
                                 {/* Cloud/Local Badge */}
                                 <div
                                     className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border cursor-default transition-colors ${user ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : cloudError ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-gray-800 text-gray-400 border-gray-700'}`}
-                                    title={user ? `מחובר לענן (משתמש: ${user.uid.substring(0, 5)}...)` : cloudError ? `שגיאת חיבור לענן: ${cloudError}` : 'מצב מקומי (הנתונים יישמרו רק בדפדפן הזה)'}
+                                    title={user ? `מחובר כ: ${user.email || user.uid.substring(0, 8) + '...'}` : cloudError ? `שגיאת חיבור לענן: ${cloudError}` : 'מצב מקומי'}
                                 >
                                     <IconUser />
-                                    {user ? 'שמור בענן' : cloudError ? 'שגיאת חיבור' : 'מקומי'}
+                                    {user ? (user.email ? user.email.split('@')[0] : 'מחובר') : cloudError ? 'שגיאת חיבור' : 'מקומי'}
                                 </div>
                                 {loading && <span className="text-sm font-normal text-gray-500 animate-pulse">(מרענן...)</span>}
                             </div>
@@ -527,6 +710,15 @@
                             >
                                 <IconSettings />
                             </button>
+
+                            {/* Sign Out */}
+                            <button
+                                onClick={() => window.signOutUser()}
+                                className="p-2 bg-gray-800 text-gray-400 hover:text-red-400 rounded-lg border border-gray-700 transition-colors"
+                                title={`התנתק (${user && user.email ? user.email : 'משתמש'})`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                            </button>
                         </div>
                     </header>
 
@@ -572,6 +764,62 @@
                                     />
                                     <p className="text-xs text-gray-500 mt-1">נמשך אוטומטית בהתחלה, אך ניתן לדייק ידנית.</p>
                                 </div>
+                            </div>
+
+                            {/* Import from Anonymous User */}
+                            <div className="mt-4 border-t border-gray-700 pt-4">
+                                <label className="block text-sm text-gray-400 mb-1">ייבוא תיק מחשבון אנונימי</label>
+                                <p className="text-xs text-gray-500 mb-2">הדבק את ה-UID של החשבון האנונימי (מ-Firebase Console) כדי לייבא את נתוני התיק לחשבונך הנוכחי. הפעולה תדרוס את הנתונים הקיימים בחשבון הנוכחי.</p>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={importUid}
+                                        onChange={(e) => { setImportUid(e.target.value.trim()); setImportStatus(null); setImportConfirm(false); }}
+                                        placeholder="הדבק User UID כאן..."
+                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 transition-colors font-mono"
+                                        dir="ltr"
+                                    />
+                                    {!importConfirm ? (
+                                        <button
+                                            onClick={() => { if (importUid) setImportConfirm(true); }}
+                                            disabled={!importUid || importLoading}
+                                            className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                                        >
+                                            ייבא
+                                        </button>
+                                    ) : (
+                                        <div className="flex gap-1">
+                                            <button
+                                                onClick={async () => {
+                                                    setImportLoading(true);
+                                                    setImportConfirm(false);
+                                                    const result = await window.importFromAnonymousUser({ user, dbInstance }, importUid);
+                                                    setImportStatus(result);
+                                                    setImportLoading(false);
+                                                    if (result.ok) setImportUid('');
+                                                }}
+                                                disabled={importLoading}
+                                                className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                                            >
+                                                {importLoading ? 'מייבא...' : 'אשר'}
+                                            </button>
+                                            <button
+                                                onClick={() => setImportConfirm(false)}
+                                                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
+                                            >
+                                                ביטול
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                {importConfirm && (
+                                    <p className="text-xs text-yellow-400 mt-1">⚠️ פעולה זו תדרוס את כל הנתונים בחשבון הנוכחי. לחץ "אשר" להמשך.</p>
+                                )}
+                                {importStatus && (
+                                    <p className={`text-xs mt-1 ${importStatus.ok ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {importStatus.ok ? '✓' : '✗'} {importStatus.message}
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
