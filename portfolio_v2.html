@@ -343,6 +343,15 @@
             // Version counter — bumped whenever window.spyHistoricalData is refreshed from Firebase
             const [spDataVersion, setSpDataVersion] = useState(0);
 
+            // Mobile detection
+            const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+            const [showMobileMenu, setShowMobileMenu] = useState(false);
+            useEffect(() => {
+                const handleResize = () => setIsMobile(window.innerWidth < 768);
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
             // Toggle for S&P 500 Comparison
             const [showSp500, setShowSp500] = useState(true);
             const [showTaxSection, setShowTaxSection] = useState(false);
@@ -647,7 +656,7 @@
                     <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-900 p-4 md:p-6 rounded-2xl border border-gray-800 shadow-lg">
                         <div>
                             <div className="flex items-center gap-3">
-                                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                                <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
                                     ניהול תיק השקעות
                                 </h1>
                                 {/* Cloud/Local Badge */}
@@ -663,18 +672,18 @@
                             <p className="text-gray-400 text-sm mt-1">מעקב בזמן אמת והיסטוריית ביצועים - מותאם אישית</p>
                         </div>
 
-                        <div className="flex items-center gap-4 w-full md:w-auto">
+                        <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-full md:w-auto">
                             {/* Currency Toggle */}
                             <div className="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
                                 <button
                                     onClick={() => setCurrency('USD')}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${currency === 'USD' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                    className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${currency === 'USD' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                                 >
                                     $ USD
                                 </button>
                                 <button
                                     onClick={() => setCurrency('ILS')}
-                                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${currency === 'ILS' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                                    className={`px-3 sm:px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${currency === 'ILS' ? 'bg-gray-700 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                                 >
                                     ₪ ILS
                                 </button>
@@ -904,9 +913,9 @@
                         };
 
                         return (
-                            <div className="bg-[#111827] rounded-2xl border border-gray-800 p-6 shadow-xl" style={{ boxShadow: '0 4px 40px rgba(0,0,0,0.3), 0 0 60px rgba(59,130,246,0.03)' }}>
+                            <div className="bg-[#111827] rounded-2xl border border-gray-800 p-4 sm:p-6 shadow-xl" style={{ boxShadow: '0 4px 40px rgba(0,0,0,0.3), 0 0 60px rgba(59,130,246,0.03)' }}>
                                 <div className="flex flex-col md:flex-row items-center gap-6">
-                                    <div className="h-[420px] w-full md:w-3/5" dir="ltr">
+                                    <div className="h-[300px] sm:h-[420px] w-full md:w-3/5" dir="ltr">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <PieChart>
                                                 <Pie
@@ -1036,10 +1045,10 @@
                         };
 
                         return (
-                    <div className="bg-[#111827] rounded-2xl border border-gray-800 p-6 shadow-xl" style={{ boxShadow: '0 4px 40px rgba(0,0,0,0.3), 0 0 60px rgba(59,130,246,0.03)' }}>
+                    <div className="bg-[#111827] rounded-2xl border border-gray-800 p-4 sm:p-6 shadow-xl" style={{ boxShadow: '0 4px 40px rgba(0,0,0,0.3), 0 0 60px rgba(59,130,246,0.03)' }}>
                         {/* Option Toggles, Performance Badges, and Time Range Selector */}
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
-                            <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex flex-col items-start justify-between mb-4 gap-3 md:flex-row md:items-center md:gap-4">
+                            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                                 {/* Toggle S&P 500 Checkbox/Switch */}
                                 <label className="flex items-center gap-3 cursor-pointer group">
                                     <div className="relative">
@@ -1079,7 +1088,7 @@
                             </div>
 
                             {/* Time Range Selector */}
-                            <div className="flex items-center gap-2 self-end">
+                            <div className="flex items-center gap-2 self-start sm:self-end">
                                 <span className="text-sm text-gray-400 font-medium ml-2">טווח ימים:</span>
                                 <div className="flex bg-gray-800/80 p-1 rounded-lg border border-gray-700/50" dir="ltr">
                                     {['1M', '3M', '6M', 'YTD', '1Y', 'ALL'].map(range => (
@@ -1098,7 +1107,7 @@
                             </div>
                         </div>
 
-                        <div className="h-[420px] w-full" dir="ltr">
+                        <div className="h-[300px] sm:h-[420px] w-full" dir="ltr">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={enrichedData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                                     <defs>
@@ -1222,10 +1231,10 @@
                                         <div className="w-1.5 h-6 bg-portfolio rounded-full"></div>
                                         <span className="font-semibold text-gray-200">תיק השקעות</span>
                                     </div>
-                                    <div className="flex items-center gap-4 md:gap-6">
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-6">
                                         <div className="flex flex-col">
-                                            <span className="text-lg font-bold text-white leading-none">{formatMoney(portfolioCurrentDisplay)}</span>
-                                            <div className="flex items-center gap-3 mt-1">
+                                            <span className="text-base sm:text-lg font-bold text-white leading-none">{formatMoney(portfolioCurrentDisplay)}</span>
+                                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                                                 <div className={`text-xs font-medium flex gap-1 ${portfolioDailyProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                                     <span>יומי:</span>
                                                     <span dir="ltr">{showValues ? (portfolioDailyProfit >= 0 ? '+' : '') : ''}{formatMoney(portfolioDailyProfit)} ({formatPercent(portfolioDailyProfitPercent)})</span>
@@ -1255,7 +1264,7 @@
                                 </div>
 
                                 {/* שורת "בסיס עלות / הפקדות נטו" */}
-                                <div className="mt-4 pt-3 border-t border-gray-700/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-sm">
+                                <div className="mt-4 pt-3 border-t border-gray-700/50 flex flex-col justify-between items-start gap-2 text-sm sm:flex-row sm:items-center">
                                     <span className="text-gray-400 font-medium">השקעה נטו (בסיס עלות):</span>
                                     {isEditingInv ? (
                                         <div className="flex items-center gap-2" dir="ltr">
@@ -1364,13 +1373,13 @@
 
                             {/* כרטיסיית מדד S&P */}
                             {showSp500 && (
-                                <div className="flex items-center justify-between w-full p-4 bg-gray-800/50 rounded-xl border border-gray-700/50 h-fit">
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full p-4 bg-gray-800/50 rounded-xl border border-gray-700/50 h-fit gap-3">
                                     <div className="flex items-center gap-3">
                                         <div className="w-1.5 h-6 bg-sp500 rounded-full"></div>
                                         <span className="font-semibold text-gray-200">מדד S&P 500</span>
                                     </div>
-                                    <div className="flex items-center gap-6">
-                                        <span className="text-lg font-bold text-white">{currentSp500Index ? currentSp500Index.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
+                                    <div className="flex items-center gap-4 sm:gap-6">
+                                        <span className="text-base sm:text-lg font-bold text-white">{currentSp500Index ? currentSp500Index.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
                                         <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-bold ${sp500PercentDisplay >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                             {sp500PercentDisplay >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
                                             {showValues ? Math.abs(sp500PercentDisplay).toFixed(2) + '%' : '••%'}
@@ -1391,7 +1400,7 @@
                                 <span className="text-sm text-gray-400 font-medium">שווי תיק</span>
                                 <div className="card-icon">💼</div>
                             </div>
-                            <div className="text-2xl font-bold text-white">{formatMoney(portfolioCurrentDisplay)}</div>
+                            <div className="text-lg sm:text-2xl font-bold text-white">{formatMoney(portfolioCurrentDisplay)}</div>
                             <div className="text-xs text-gray-500 mt-1">שער: ₪{exchangeRate.toFixed(2)}</div>
                         </div>
 
@@ -1401,7 +1410,7 @@
                                 <span className="text-sm text-gray-400 font-medium">שינוי יומי</span>
                                 <div className="card-icon">{portfolioDailyProfit >= 0 ? '📈' : '📉'}</div>
                             </div>
-                            <div className={`text-2xl font-bold ${portfolioDailyProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            <div className={`text-lg sm:text-2xl font-bold ${portfolioDailyProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                 {portfolioDailyProfit >= 0 ? '+' : ''}{formatMoney(portfolioDailyProfit)}
                             </div>
                             <div className={`text-xs mt-1 ${portfolioDailyProfitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -1415,7 +1424,7 @@
                                 <span className="text-sm text-gray-400 font-medium">רווח כולל</span>
                                 <div className="card-icon">{portfolioProfitDisplay >= 0 ? '🏆' : '📊'}</div>
                             </div>
-                            <div className={`text-2xl font-bold ${portfolioProfitDisplay >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            <div className={`text-lg sm:text-2xl font-bold ${portfolioProfitDisplay >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                 {portfolioProfitDisplay >= 0 ? '+' : ''}{formatMoney(portfolioProfitDisplay)}
                             </div>
                             <div className={`text-xs mt-1 ${portfolioProfitPercentDisplay >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -1429,7 +1438,7 @@
                                 <span className="text-sm text-gray-400 font-medium">מתחילת שנה</span>
                                 <div className="card-icon">📅</div>
                             </div>
-                            <div className={`text-2xl font-bold ${portfolioYtdProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            <div className={`text-lg sm:text-2xl font-bold ${portfolioYtdProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                                 {portfolioYtdProfit >= 0 ? '+' : ''}{formatMoney(portfolioYtdProfit)}
                             </div>
                             <div className={`text-xs mt-1 ${portfolioYtdProfitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -1581,11 +1590,153 @@
 
                     {/* Positions Table */}
                     <div className="bg-[#111827] rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
-                        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
-                            <h2 className="text-xl font-bold text-white">נכסים בתיק</h2>
+                        <div className="p-4 sm:p-6 border-b border-gray-800 flex justify-between items-center">
+                            <h2 className="text-lg sm:text-xl font-bold text-white">נכסים בתיק</h2>
                         </div>
 
-                        <div className="overflow-x-auto">
+                        {/* Mobile Card View */}
+                        {isMobile && (() => {
+                            const rateNow = currency === 'ILS' ? exchangeRate : 1;
+                            const cashValue = currency === 'ILS' ? cash * exchangeRate : cash;
+                            const allPositions = positions.filter(pos => getPositionStats(pos).totalShares > 0);
+                            const totalPortValue = allPositions.reduce((sum, pos) => sum + getPositionStats(pos).totalShares * pos.currentPrice * rateNow, 0) + cashValue;
+
+                            return (
+                                <div className="p-3 space-y-3">
+                                    {/* Cash Card */}
+                                    <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/40">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
+                                                    {currency === 'USD' ? '$' : '₪'}
+                                                </div>
+                                                <div>
+                                                    <span className="font-semibold text-gray-200 text-sm">מזומן</span>
+                                                    <div className="text-xs text-gray-500">{totalPortValue > 0 ? ((cashValue / totalPortValue) * 100).toFixed(1) + '% מהתיק' : ''}</div>
+                                                </div>
+                                            </div>
+                                            <div className="text-left">
+                                                <div className="font-bold text-white text-sm">{formatMoney(cashValue)}</div>
+                                                {!isEditingCash && !isAddingCash && (
+                                                    <div className="flex items-center gap-2 mt-1 justify-end">
+                                                        <button onClick={() => { setIsAddingCash(true); setTempAddCash(''); setTempAddCashRate(exchangeRate.toString()); setTempAddCashDate(''); }} className="text-emerald-400 text-xs">+ הוסף</button>
+                                                        <button onClick={() => { setIsEditingCash(true); setTempCash(cash.toString()); setTempCashRate(cashRate !== null ? cashRate.toString() : exchangeRate.toString()); }} className="text-portfolio text-xs">ערוך</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Position Cards */}
+                                    {allPositions.slice().sort((a, b) => {
+                                        const statsA = getPositionStats(a);
+                                        const statsB = getPositionStats(b);
+                                        const rateAtA = currency === 'ILS' ? getRateAtDate(statsA.earliestDate, exchangeRate) : 1;
+                                        const rateAtB = currency === 'ILS' ? getRateAtDate(statsB.earliestDate, exchangeRate) : 1;
+                                        const valA = statsA.totalShares * a.currentPrice * rateNow;
+                                        const valB = statsB.totalShares * b.currentPrice * rateNow;
+                                        let cmp = valA - valB;
+                                        return sortDirection === 'asc' ? cmp : -cmp;
+                                    }).map(pos => {
+                                        const stats = getPositionStats(pos);
+                                        const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
+                                        const cost = stats.totalCost * rateAtPurchase;
+                                        const value = stats.totalShares * pos.currentPrice * rateNow;
+                                        const profit = value - cost;
+                                        const profitPct = cost > 0 ? (profit / cost) * 100 : 0;
+                                        const weight = totalPortValue > 0 ? ((value / totalPortValue) * 100).toFixed(1) : '0.0';
+                                        const dailyPct = pos.dailyChangePercent;
+                                        const dailyVal = pos.dailyChange !== undefined && pos.dailyChange !== null ? pos.dailyChange * stats.totalShares * rateNow : null;
+
+                                        return (
+                                            <div key={pos.id} className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/40">
+                                                {/* Row 1: Symbol + Value */}
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <img
+                                                            src={`https://logo.clearbit.com/${pos.symbol.toLowerCase()}.com`}
+                                                            className="stock-logo"
+                                                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                                                            alt={pos.symbol}
+                                                        />
+                                                        <div className="stock-logo-fallback" style={{ display: 'none' }}>{pos.symbol.substring(0, 2)}</div>
+                                                        <div>
+                                                            <div className="font-bold text-white text-sm">{pos.symbol}</div>
+                                                            <div className="text-xs text-gray-500">{stats.totalShares} מניות · {weight}%</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <div className="font-bold text-white text-sm">{formatMoney(value)}</div>
+                                                        <div className="text-xs text-gray-500" dir="ltr">@ {formatMoney(pos.currentPrice * rateNow)}</div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 2: Daily + Profit */}
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <div className="flex items-center gap-4">
+                                                        <div>
+                                                            <span className="text-gray-500 ml-1">יומי</span>
+                                                            <span className={dailyVal !== null && dailyVal >= 0 ? 'text-green-400' : 'text-red-400'} dir="ltr">
+                                                                {dailyPct !== undefined && dailyPct !== null ? (dailyPct >= 0 ? '+' : '') + dailyPct.toFixed(2) + '%' : '-'}
+                                                            </span>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-gray-500 ml-1">רווח</span>
+                                                            <span className={profit >= 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'} dir="ltr">
+                                                                {(profit >= 0 ? '+' : '') + profitPct.toFixed(1) + '%'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className={`font-semibold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`} dir="ltr">
+                                                        {(profit >= 0 ? '+' : '')}{formatMoney(profit)}
+                                                    </div>
+                                                </div>
+
+                                                {/* Weight bar */}
+                                                <div className="mt-2.5 w-full h-1 bg-gray-700/40 rounded-full overflow-hidden">
+                                                    <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all" style={{ width: weight + '%' }}></div>
+                                                </div>
+
+                                                {/* Actions */}
+                                                <div className="flex items-center justify-end gap-3 mt-2 pt-2 border-t border-gray-700/30">
+                                                    <button onClick={() => startEditingStock(pos)} className="text-xs text-gray-500 hover:text-portfolio flex items-center gap-1"><IconEdit /> ערוך</button>
+                                                    <button onClick={() => removePosition(pos.id)} className="text-xs text-gray-500 hover:text-red-400 flex items-center gap-1"><IconTrash /> מחק</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Totals Card */}
+                                    {(() => {
+                                        let totalProfit = 0;
+                                        let totalCost = 0;
+                                        allPositions.forEach(pos => {
+                                            const stats = getPositionStats(pos);
+                                            const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
+                                            totalCost += stats.totalCost * rateAtPurchase;
+                                            totalProfit += (stats.totalShares * pos.currentPrice * rateNow) - (stats.totalCost * rateAtPurchase);
+                                        });
+                                        return (
+                                            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/5 rounded-xl p-4 border-2 border-blue-500/20">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-bold text-white text-sm">סה"כ תיק</span>
+                                                    <span className="font-bold text-white text-base">{formatMoney(totalPortValue)}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between mt-1 text-xs">
+                                                    <span className="text-gray-400">רווח כולל</span>
+                                                    <span className={`font-semibold ${totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`} dir="ltr">
+                                                        {(totalProfit >= 0 ? '+' : '')}{formatMoney(totalProfit)} ({totalCost > 0 ? (totalProfit >= 0 ? '+' : '') + ((totalProfit / totalCost) * 100).toFixed(2) + '%' : '0%'})
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Desktop Table View */}
+                        <div className={isMobile ? 'hidden' : 'overflow-x-auto'}>
                             <table className="w-full text-right text-xs compact-table">
                                 <thead className="text-gray-400 bg-gray-900/50 border-b border-gray-800 sticky-thead">
                                     <tr>
@@ -1961,7 +2112,7 @@
                         </div>
 
                         {/* Add New Position Form */}
-                        <div className="p-6 bg-gray-900/50 border-t border-gray-800">
+                        <div className="p-4 sm:p-6 bg-gray-900/50 border-t border-gray-800">
                             <h3 className="text-sm font-semibold text-gray-400 mb-4">הוסף נכס חדש</h3>
                             <form onSubmit={handleAddPosition} className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                 <div>
@@ -1984,7 +2135,7 @@
                             </form>
 
                             {/* Excel Import */}
-                            <div className="mt-4 pt-4 border-t border-gray-700/50 flex items-center gap-4">
+                            <div className="mt-4 pt-4 border-t border-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                                 <label className="cursor-pointer flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg px-4 py-2.5 transition-colors text-sm font-medium">
                                     <span>📥 ייבוא מאקסל</span>
                                     <input

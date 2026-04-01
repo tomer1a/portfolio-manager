@@ -317,3 +317,60 @@ body {
 .tax-content-enter::-webkit-scrollbar-thumb:hover {
     background: rgba(99, 102, 241, 0.6);
 }
+
+/* =====================================================================
+ * Mobile Responsive Styles
+ * ===================================================================== */
+
+/* Touch-friendly tap targets on mobile */
+@media (max-width: 768px) {
+    /* Ensure minimum tap target size */
+    button, [role="button"] {
+        min-height: 36px;
+        min-width: 36px;
+    }
+
+    /* Prevent horizontal overflow */
+    body {
+        overflow-x: hidden;
+    }
+
+    /* Safe area padding for notched phones */
+    .max-w-6xl {
+        padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+}
+
+@media (max-width: 640px) {
+    /* Summary cards: smaller text & tighter */
+    .summary-card {
+        padding: 12px 14px;
+        border-radius: 12px;
+    }
+    .summary-card .card-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+        border-radius: 8px;
+    }
+
+    /* Tax card: tighter padding */
+    .tax-card {
+        border-radius: 12px;
+    }
+    .tax-total-row {
+        padding: 10px 12px;
+        margin: 0 -12px -12px;
+    }
+
+    /* Chart tooltip: smaller on mobile */
+    .chart-tooltip {
+        min-width: auto !important;
+        font-size: 12px;
+    }
+
+    /* Weight bar: wider on mobile cards */
+    .weight-bar-container {
+        width: 100%;
+    }
+}
