@@ -106,12 +106,22 @@ window.importFromAnonymousUser = async function (ctx, anonymousUid) {
             return { ok: false, message: 'לא נמצא תיק השקעות עבור ה-UID שהוזן' };
         }
 
-        var portfolioData = srcSnap.data();
+        var rawPortfolioData = srcSnap.data();
 
-        // Write to destination
+        // Decrypt source data (may have been encrypted with the source user's key)
+        var portfolioData = rawPortfolioData;
+        try {
+            portfolioData = await window.decryptPortfolioData(srcUid, rawPortfolioData);
+        } catch (e) {
+            // If decryption fails, data was likely unencrypted — use as-is
+            portfolioData = rawPortfolioData;
+        }
+
+        // Re-encrypt with the destination user's key and write
         var dstRef = db.collection('artifacts').doc(appId)
             .collection('users').doc(dstUid).collection('portfolio').doc('main');
-        await dstRef.set(portfolioData, { merge: false });
+        var encryptedForDst = await window.encryptPortfolioData(dstUid, portfolioData);
+        await dstRef.set(encryptedForDst, { merge: false });
 
         // Copy daily snapshots
         try {
@@ -157,9 +167,19 @@ window.setupCloudListener = function (ctx) {
             var docRef = ctx.dbInstance.collection('artifacts').doc(appId)
                 .collection('users').doc(ctx.user.uid).collection('portfolio').doc('main');
 
-            unsubscribe = docRef.onSnapshot(function (docSnap) {
+            unsubscribe = docRef.onSnapshot(async function (docSnap) {
                 if (docSnap.exists) {
-                    var data = docSnap.data();
+                    var rawData = docSnap.data();
+                    // Decrypt data if it was stored encrypted
+                    var data = rawData;
+                    try {
+                        data = await window.decryptPortfolioData(ctx.user.uid, rawData);
+                    } catch (decErr) {
+                        console.error('Decryption error:', decErr);
+                        ctx.setCloudError('Failed to decrypt portfolio data');
+                        ctx.setDbReady(true);
+                        return;
+                    }
                     if (data.positions) {
                         // Migration: convert flat positions to transactions format
                         var migrated = data.positions.map(function (p) {
@@ -268,10 +288,13 @@ window.savePortfolioToDb = async function (ctx, data) {
             return clean;
         });
 
-        await docRef.set({
+        // Encrypt sensitive data before saving to Firestore
+        var saveData = {
             positions: cleanPositions, cash: c, apiKey: a,
             initialInvestment: i, cashRate: cr, investmentRate: ir, cashDeposits: deps
-        }, { merge: true });
+        };
+        var encryptedData = await window.encryptPortfolioData(ctx.user.uid, saveData);
+        await docRef.set(encryptedData, { merge: false });
 
         // Save daily snapshot
         var today = new Date().toISOString().split('T')[0];
@@ -287,7 +310,8 @@ window.savePortfolioToDb = async function (ctx, data) {
             }),
             cash: c, timestamp: Date.now()
         };
-        await userCol.doc('snapshots').collection('daily').doc(today).set(snapshotData);
+        var encryptedSnapshot = await window.encryptSnapshot(ctx.user.uid, snapshotData);
+        await userCol.doc('snapshots').collection('daily').doc(today).set(encryptedSnapshot);
     } catch (error) {
         console.error("Error saving data:", error);
     }
