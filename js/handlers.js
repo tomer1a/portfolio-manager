@@ -31,11 +31,14 @@ window.handleAddPositionLogic = async function (e, ctx) {
         } catch (err) { console.error('Error fetching price:', err); }
     }
 
+    var commissionUSD = ctx.newCommission ? parseFloat(ctx.newCommission) / rateAtAdd : 0;
+
     var newTransaction = {
         id: 't_' + Date.now(),
         shares: parseFloat(ctx.newShares),
         price: parseFloat(ctx.newPrice) / rateAtAdd,
-        date: ctx.newDate
+        date: ctx.newDate,
+        commission: commissionUSD
     };
 
     // Check if a position already exists for this symbol
@@ -65,14 +68,14 @@ window.handleAddPositionLogic = async function (e, ctx) {
         newPositions = ctx.positions.concat([newPos]);
     }
 
-    // Deduct from cash
-    var totalCostUSD = newTransaction.shares * newTransaction.price;
+    // Deduct from cash (including commission)
+    var totalCostUSD = newTransaction.shares * newTransaction.price + commissionUSD;
     var currentCash = ctx.cash || 0;
     var newCash = currentCash - totalCostUSD;
     var newCashRate = ctx.cashRate;
 
     ctx.saveToDb(newPositions, newCash, undefined, undefined, newCashRate, undefined);
-    ctx.setNewSymbol(''); ctx.setNewShares(''); ctx.setNewPrice(''); ctx.setNewDate('');
+    ctx.setNewSymbol(''); ctx.setNewShares(''); ctx.setNewPrice(''); ctx.setNewDate(''); ctx.setNewCommission('');
 };
 
 /**

@@ -316,6 +316,7 @@
             const [newShares, setNewShares] = useState('');
             const [newPrice, setNewPrice] = useState('');
             const [newDate, setNewDate] = useState('');
+            const [newCommission, setNewCommission] = useState('');
 
             // Multi-transaction & dividend states
             const [expandedStocks, setExpandedStocks] = useState({});
@@ -498,9 +499,9 @@
 
             // Form Handlers — delegates to handlers.js
             const handleAddPosition = (e) => window.handleAddPositionLogic(e, {
-                newSymbol, newShares, newPrice, newDate, currency, exchangeRate,
+                newSymbol, newShares, newPrice, newDate, newCommission, currency, exchangeRate,
                 positions, cash, cashRate, apiKey, getRateAtDate, normalizeSymbol,
-                getPositionStats, saveToDb, setNewSymbol, setNewShares, setNewPrice, setNewDate
+                getPositionStats, saveToDb, setNewSymbol, setNewShares, setNewPrice, setNewDate, setNewCommission
             });
 
             const removePosition = (id) => window.removePositionLogic(id, {
@@ -2120,7 +2121,7 @@
                         {/* Add New Position Form */}
                         <div className="p-4 sm:p-6 bg-gray-900/50 border-t border-gray-800">
                             <h3 className="text-sm font-semibold text-gray-400 mb-4">הוסף נכס חדש</h3>
-                            <form onSubmit={handleAddPosition} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <form onSubmit={handleAddPosition} className="grid grid-cols-1 md:grid-cols-6 gap-4">
                                 <div>
                                     <input required type="text" placeholder="סמל (למשל AAPL)" value={newSymbol} onChange={e => setNewSymbol(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
                                 </div>
@@ -2132,6 +2133,9 @@
                                 </div>
                                 <div>
                                     <input required type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm custom-date-input" style={{ colorScheme: 'dark' }} />
+                                </div>
+                                <div>
+                                    <input type="number" step="any" min="0" placeholder={`עמלה ב-${currency}`} value={newCommission} onChange={e => setNewCommission(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
                                 </div>
                                 <div>
                                     <button type="submit" className="w-full bg-portfolio hover:bg-blue-600 text-white font-medium rounded-lg px-4 py-2.5 transition-colors shadow-lg shadow-blue-500/20">

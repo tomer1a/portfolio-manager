@@ -23,7 +23,8 @@ window.getPositionStats = function (pos) {
     }];
 
     var totalShares = txns.reduce(function (sum, t) { return sum + t.shares; }, 0);
-    var totalCost   = txns.reduce(function (sum, t) { return sum + t.shares * t.price; }, 0);
+    var totalCommission = txns.reduce(function (sum, t) { return sum + (t.commission || 0); }, 0);
+    var totalCost   = txns.reduce(function (sum, t) { return sum + t.shares * t.price; }, 0) + totalCommission;
     var avgPrice    = totalShares > 0 ? totalCost / totalShares : 0;
 
     // Find the earliest transaction date
