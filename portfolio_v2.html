@@ -79,6 +79,14 @@
     <script src="js/api.js?v=2"></script>
     <script src="js/handlers.js?v=2"></script>
 
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(function (err) {
+                console.warn('SW registration failed:', err);
+            });
+        }
+    </script>
+
     <script type="text/babel">
         // =====================================================================
         // Library Availability Check
