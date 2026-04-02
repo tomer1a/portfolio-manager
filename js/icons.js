@@ -19,6 +19,7 @@
         );
     };
 
+    /** Downward trend arrow (used for negative daily change). */
     window.IconTrendingDown = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('polyline', { points: '22 17 13.5 8.5 8.5 13.5 2 7' }),
@@ -26,6 +27,7 @@
         );
     };
 
+    /** Gear/cog icon (20×20, used in the settings panel toggle). */
     window.IconSettings = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('circle', { cx: 12, cy: 12, r: 3 }),
@@ -33,6 +35,7 @@
         );
     };
 
+    /** Trash can icon (used on position/transaction delete buttons). */
     window.IconTrash = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('polyline', { points: '3 6 5 6 21 6' }),
@@ -40,6 +43,7 @@
         );
     };
 
+    /** Pencil-on-paper icon (used on position edit buttons). */
     window.IconEdit = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('path', { d: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7' }),
@@ -47,6 +51,7 @@
         );
     };
 
+    /** Circular refresh arrow (20×20, used on the "refresh prices" button). */
     window.IconRefresh = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('path', { d: 'M21 2v6h-6' }),
@@ -54,6 +59,7 @@
         );
     };
 
+    /** Open eye icon (20×20, used for "show values" toggle). */
     window.IconEyeOpen = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('path', { d: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z' }),
@@ -61,6 +67,7 @@
         );
     };
 
+    /** Closed eye with strike-through (20×20, used for "hide values" toggle). */
     window.IconEyeClosed = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('path', { d: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24' }),
@@ -68,6 +75,7 @@
         );
     };
 
+    /** User silhouette icon (used for account/profile display). */
     window.IconUser = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('path', { d: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2' }),
@@ -75,7 +83,7 @@
         );
     };
 
-    // Sign-out icon (used inline in header)
+    /** Door-with-arrow sign-out icon (20×20, used in the header logout button). */
     window.IconSignOut = function () {
         return h('svg', { xmlns: 'http://www.w3.org/2000/svg', width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
             h('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }),

@@ -1,8 +1,25 @@
-// js/loginScreen.js — Login/Register screen component (no JSX, works with file://)
+// =====================================================================
+// loginScreen.js — Login / Register Screen Component (no JSX)
+// =====================================================================
+// Full-screen authentication form supporting email/password login,
+// email registration, and Google OAuth sign-in.  All auth calls
+// delegate to the Firebase helpers defined in api.js.
+//
+// Exports:
+//   window.LoginScreen(props)   — React component
+//     props.onLogin(user)       — callback invoked with the Firebase User
+//                                  object after successful authentication
+// =====================================================================
 (function () {
     var h = React.createElement;
     var useState = React.useState;
 
+    /**
+     * Map a Firebase Auth error code to a user-friendly Hebrew message.
+     *
+     * @param {string} code — Firebase error code (e.g. 'auth/wrong-password')
+     * @returns {string} — localised error description
+     */
     var hebrewError = function (code) {
         var map = {
             'auth/user-not-found': 'לא נמצא משתמש עם כתובת דוא"ל זו',
@@ -18,7 +35,7 @@
         return map[code] || 'אירעה שגיאה, אנא נסה שוב';
     };
 
-    // Google SVG icon
+    /** Google "G" logo rendered as an inline SVG (18×18, four-colour). */
     var GoogleIcon = function () {
         return h('svg', { width: 18, height: 18, viewBox: '0 0 18 18', xmlns: 'http://www.w3.org/2000/svg' },
             h('g', { fill: 'none', fillRule: 'evenodd' },
@@ -30,6 +47,15 @@
         );
     };
 
+    /**
+     * Login / Register screen component.
+     * Manages its own local state for mode (login vs register), form fields,
+     * loading indicator, and error messages.
+     *
+     * @param {Object} props
+     * @param {Function} props.onLogin — called with the Firebase User after successful auth
+     * @returns {ReactElement}
+     */
     window.LoginScreen = function (props) {
         var onLogin = props.onLogin;
 

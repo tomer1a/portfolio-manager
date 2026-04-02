@@ -1,10 +1,34 @@
-// js/renderPanels.js — Settings panel, summary cards, and tax section (no JSX)
+// =====================================================================
+// renderPanels.js — Settings Panel, Summary Cards & Tax Section (no JSX)
+// =====================================================================
+// Three top-level UI sections rendered above the positions table:
+//   1. Settings Panel   — API key, exchange rate, anonymous-user import
+//   2. Summary Cards    — 4-card row (portfolio value, daily P&L, total
+//                         profit, YTD return)
+//   3. Tax Section      — collapsible panel showing estimated dividend
+//                         withholding tax and realized capital-gains tax
+//
+// All functions receive a `ctx` object containing the React state values,
+// setters, and helper functions they need (formatMoney, exchangeRate, etc.).
+// =====================================================================
 (function () {
     var h = React.createElement;
 
     // =====================================================================
     // Settings Panel
     // =====================================================================
+
+    /**
+     * Render the advanced-settings panel (API key, exchange rate, portfolio import).
+     *
+     * @param {Object} ctx — app context containing:
+     *   tempApiKey, setTempApiKey, saveToDb, apiError,
+     *   exchangeRate, setExchangeRate,
+     *   importUid, setImportUid, importConfirm, setImportConfirm,
+     *   importLoading, setImportLoading, importStatus, setImportStatus,
+     *   user, dbInstance
+     * @returns {ReactElement}
+     */
     window.renderSettingsPanel = function (ctx) {
         return h('div', { className: 'bg-gray-850 p-4 rounded-xl border border-gray-700 shadow-md animate-fade-in' },
             h('h3', { className: 'text-lg font-semibold mb-3 text-gray-200' }, 'הגדרות מתקדמות'),
@@ -89,6 +113,18 @@
     // =====================================================================
     // Summary Cards (4 cards row)
     // =====================================================================
+
+    /**
+     * Render the 4-card summary row: portfolio value, daily change,
+     * total profit, and year-to-date return.
+     *
+     * @param {Object} ctx — app context containing:
+     *   formatMoney, formatPercent, portfolioCurrentDisplay, exchangeRate,
+     *   portfolioDailyProfit, portfolioDailyProfitPercent,
+     *   portfolioProfitDisplay, portfolioProfitPercentDisplay,
+     *   portfolioYtdProfit, portfolioYtdProfitPercent
+     * @returns {ReactElement}
+     */
     window.renderSummaryCards = function (ctx) {
         var fm = ctx.formatMoney;
         var fp = ctx.formatPercent;
@@ -139,6 +175,18 @@
     // =====================================================================
     // Tax Summary Section
     // =====================================================================
+
+    /**
+     * Render the collapsible tax-summary panel.
+     * Shows estimated dividend withholding tax (25% US) and realised
+     * capital-gains tax (25% Israeli), broken down per position.
+     * Returns null if the portfolio has no dividends and no sales.
+     *
+     * @param {Object} ctx — app context containing:
+     *   calculateTaxSummary, formatMoney, currency,
+     *   showTaxSection, setShowTaxSection
+     * @returns {ReactElement|null}
+     */
     window.renderTaxSection = function (ctx) {
         var tax = ctx.calculateTaxSummary();
         var hasDividends = tax.dividends.grossUSD > 0;

@@ -1,10 +1,38 @@
-// js/renderTable.js — Positions table (mobile + desktop) and add form (no JSX)
+// =====================================================================
+// renderTable.js — Positions Table (mobile + desktop) & Add-Position Form
+// =====================================================================
+// Renders the main portfolio holdings in two responsive layouts:
+//   - Mobile:  card-based view with compact stats per position
+//   - Desktop: full HTML table with sortable columns, inline editing,
+//              expandable transaction/dividend sub-rows
+//
+// Also provides the "Add Position" form and Excel import button.
+//
+// All functions receive a `ctx` object containing the React state values,
+// setters, and helper functions (formatMoney, getPositionStats, etc.).
+// =====================================================================
 (function () {
     var h = React.createElement;
 
     // =====================================================================
     // Mobile Card View
     // =====================================================================
+
+    /**
+     * Render the mobile card-based positions list.
+     * Includes a cash card at the top, one card per position sorted by
+     * value, and a totals card at the bottom.
+     *
+     * @param {Object} ctx — app context containing:
+     *   positions, cash, currency, exchangeRate, formatMoney,
+     *   getPositionStats, getRateAtDate, sortDirection,
+     *   isEditingCash, isAddingCash, setIsEditingCash, setIsAddingCash,
+     *   tempCash, setTempCash, tempCashRate, setTempCashRate,
+     *   tempAddCash, setTempAddCash, tempAddCashRate, setTempAddCashRate,
+     *   tempAddCashDate, setTempAddCashDate,
+     *   startEditingStock, removePosition
+     * @returns {ReactElement}
+     */
     window.renderMobilePositions = function (ctx) {
         var rateNow = ctx.currency === 'ILS' ? ctx.exchangeRate : 1;
         var cashValue = ctx.currency === 'ILS' ? ctx.cash * ctx.exchangeRate : ctx.cash;
@@ -125,8 +153,25 @@
     };
 
     // =====================================================================
-    // Desktop Table — Position Rows (already createElement in original)
+    // Desktop Table — Position Rows
     // =====================================================================
+
+    /**
+     * Render a single desktop table row for a position, plus expandable
+     * sub-rows for individual transactions and dividends.
+     * Supports inline editing of shares/price when ctx.editingStockId matches.
+     *
+     * @param {Object} pos — the position object (symbol, transactions, currentPrice, etc.)
+     * @param {Object} ctx — app context containing:
+     *   currency, exchangeRate, formatMoney, getPositionStats, getRateAtDate,
+     *   editingStockId, editStockData, setEditStockData, expandedStocks,
+     *   setExpandedStocks, portfolioCurrentDisplay,
+     *   dividendForm, setDividendForm, tempDivAmount, setTempDivAmount,
+     *   tempDivDate, setTempDivDate, handleAddDividend, removeDividend,
+     *   startEditingStock, cancelStockEdit, saveStockEdit,
+     *   removePosition, removeTransaction
+     * @returns {ReactElement} — a React.Fragment containing the main <tr> and optional sub-rows
+     */
     window.renderDesktopPositionRow = function (pos, ctx) {
         var h = React.createElement;
         var stats = ctx.getPositionStats(pos);
@@ -280,6 +325,17 @@
     // =====================================================================
     // Desktop Table — Totals Row
     // =====================================================================
+
+    /**
+     * Render the bottom "totals" row of the desktop positions table.
+     * Aggregates total value, daily change, and overall profit across
+     * all positions plus cash.
+     *
+     * @param {Object} ctx — app context containing:
+     *   positions, cash, currency, exchangeRate, formatMoney,
+     *   getPositionStats, getRateAtDate
+     * @returns {ReactElement} — a single <tr> with summary columns
+     */
     window.renderDesktopTotalsRow = function (ctx) {
         var h = React.createElement;
         var rateNow = ctx.currency === 'ILS' ? ctx.exchangeRate : 1;
@@ -335,6 +391,19 @@
     // =====================================================================
     // Add Position Form + Excel Import
     // =====================================================================
+
+    /**
+     * Render the "Add new position" form and the Excel import button.
+     * The form collects symbol, shares, purchase price, date, and
+     * optional commission. The Excel import accepts .xlsx/.xls/.csv files.
+     *
+     * @param {Object} ctx — app context containing:
+     *   currency, newSymbol, setNewSymbol, newShares, setNewShares,
+     *   newPrice, setNewPrice, newDate, setNewDate,
+     *   newCommission, setNewCommission,
+     *   handleAddPosition, handleExcelImport
+     * @returns {ReactElement}
+     */
     window.renderAddPositionForm = function (ctx) {
         var h = React.createElement;
         var inputClass = 'w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm';
