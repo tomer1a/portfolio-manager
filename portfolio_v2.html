@@ -768,6 +768,9 @@
                             if (chartRange === 'YTD') {
                                 // Use the real YTD profit percent from API data
                                 filteredData[filteredData.length - 1][portKey] = parseFloat(portfolioYtdProfitPercent.toFixed(2));
+                            } else if (chartRange === 'ALL') {
+                                // Use the real total profit percent from calculateTotals
+                                filteredData[filteredData.length - 1][portKey] = parseFloat(portfolioProfitPercentDisplay.toFixed(2));
                             }
                         }
 
