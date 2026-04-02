@@ -78,6 +78,10 @@
     <script src="js/crypto.js?v=2"></script>
     <script src="js/api.js?v=2"></script>
     <script src="js/handlers.js?v=2"></script>
+    <script src="js/icons.js?v=2"></script>
+    <script src="js/loginScreen.js?v=2"></script>
+    <script src="js/renderPanels.js?v=2"></script>
+    <script src="js/renderTable.js?v=2"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
@@ -99,185 +103,11 @@
         const { useState, useEffect, useMemo } = React;
         const { ResponsiveContainer, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Dot, PieChart, Pie, Cell, Legend } = window.Recharts;
 
-        // =====================================================================
-        // SVG Icon Components
-        // =====================================================================
-        const IconTrendingUp = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>;
-        const IconTrendingDown = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"></polyline><polyline points="16 17 22 17 22 11"></polyline></svg>;
-        const IconSettings = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
-        const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
-        const IconEdit = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
-        const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 1 0 2.81-6.61L21 8"></path></svg>;
-        const IconEyeOpen = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>;
-        const IconEyeClosed = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>;
-        const IconUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>;
+        // Icon & LoginScreen components loaded from js/icons.js and js/loginScreen.js
+        const { IconTrendingUp, IconTrendingDown, IconSettings, IconTrash, IconEdit, IconRefresh, IconEyeOpen, IconEyeClosed, IconUser, IconSignOut, LoginScreen } = window;
 
         // References to external utility functions (from js/*.js files)
         const { getPositionStats, getJaggedNoise, normalizeSymbol, firebaseConfig, initialPositions } = window;
-
-        // --- Login Screen Component ---
-        const LoginScreen = ({ onLogin }) => {
-            const [mode, setMode] = useState('login'); // 'login' | 'register'
-            const [email, setEmail] = useState('');
-            const [password, setPassword] = useState('');
-            const [confirmPassword, setConfirmPassword] = useState('');
-            const [error, setError] = useState('');
-            const [loading, setLoading] = useState(false);
-
-            const hebrewError = (code) => {
-                const map = {
-                    'auth/user-not-found': 'לא נמצא משתמש עם כתובת דוא"ל זו',
-                    'auth/wrong-password': 'סיסמה שגויה',
-                    'auth/invalid-credential': 'דוא"ל או סיסמה שגויים',
-                    'auth/email-already-in-use': 'כתובת הדוא"ל כבר רשומה במערכת',
-                    'auth/weak-password': 'הסיסמה חלשה מדי — נדרשים לפחות 6 תווים',
-                    'auth/invalid-email': 'כתובת הדוא"ל אינה תקינה',
-                    'auth/too-many-requests': 'יותר מדי ניסיונות כניסה. נסה שוב מאוחר יותר',
-                    'auth/popup-closed-by-user': 'החלון נסגר לפני השלמת הכניסה',
-                    'auth/network-request-failed': 'בעיית רשת. בדוק את החיבור לאינטרנט',
-                };
-                return map[code] || 'אירעה שגיאה, אנא נסה שוב';
-            };
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setError('');
-                if (mode === 'register' && password !== confirmPassword) {
-                    setError('הסיסמאות אינן תואמות');
-                    return;
-                }
-                setLoading(true);
-                try {
-                    var result;
-                    if (mode === 'login') {
-                        result = await window.signInWithEmail(email, password);
-                    } else {
-                        result = await window.registerWithEmail(email, password);
-                    }
-                    onLogin(result.user);
-                } catch (err) {
-                    setError(hebrewError(err.code));
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleGoogle = async () => {
-                setError('');
-                setLoading(true);
-                try {
-                    var result = await window.signInWithGoogle();
-                    onLogin(result.user);
-                } catch (err) {
-                    setError(hebrewError(err.code));
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            return (
-                <div className="min-h-screen flex items-center justify-center bg-[#030712] p-4">
-                    <div className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl p-8">
-                        <div className="text-center mb-8">
-                            <h1 className="text-2xl font-bold text-white mb-1">ניהול תיק השקעות</h1>
-                            <p className="text-gray-400 text-sm">{mode === 'login' ? 'התחבר לחשבונך' : 'צור חשבון חדש'}</p>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-1">כתובת דוא"ל</label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    placeholder="you@example.com"
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
-                                    dir="ltr"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-1">סיסמה</label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    placeholder="לפחות 6 תווים"
-                                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
-                                    dir="ltr"
-                                />
-                            </div>
-
-                            {mode === 'register' && (
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">אימות סיסמה</label>
-                                    <input
-                                        type="password"
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        required
-                                        placeholder="הכנס שוב את הסיסמה"
-                                        className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-colors"
-                                        dir="ltr"
-                                    />
-                                </div>
-                            )}
-
-                            {error && (
-                                <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-2.5 text-red-400 text-sm">
-                                    {error}
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors"
-                            >
-                                {loading ? 'מתחבר...' : mode === 'login' ? 'התחבר' : 'צור חשבון'}
-                            </button>
-                        </form>
-
-                        <div className="relative my-5">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-gray-700"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-3 bg-gray-900 text-gray-500">או</span>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleGoogle}
-                            disabled={loading}
-                            className="w-full flex items-center justify-center gap-3 bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-700 text-white font-medium py-2.5 rounded-lg transition-colors"
-                        >
-                            <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
-                                <g fill="none" fillRule="evenodd">
-                                    <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-                                    <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-                                    <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-                                    <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-                                </g>
-                            </svg>
-                            המשך עם Google
-                        </button>
-
-                        <p className="text-center text-sm text-gray-500 mt-6">
-                            {mode === 'login' ? 'אין לך חשבון עדיין?' : 'כבר יש לך חשבון?'}{' '}
-                            <button
-                                onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
-                                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-                            >
-                                {mode === 'login' ? 'הירשם כאן' : 'התחבר כאן'}
-                            </button>
-                        </p>
-                    </div>
-                </div>
-            );
-        };
 
         // --- Main App Component ---
         const App = () => {
@@ -640,6 +470,33 @@
                 return null;
             };
 
+            // Shared context object for extracted render functions
+            const ctx = {
+                currency, exchangeRate, setExchangeRate, apiKey, tempApiKey, setTempApiKey,
+                apiError, showSettings, setShowSettings, positions, cash, cashRate, setCashRate,
+                initialInvestment, investmentRate, spyData, isEditingCash, setIsEditingCash,
+                tempCash, setTempCash, tempCashRate, setTempCashRate, isAddingCash, setIsAddingCash,
+                tempAddCash, setTempAddCash, tempAddCashRate, setTempAddCashRate, tempAddCashDate, setTempAddCashDate,
+                isEditingInv, setIsEditingInv, tempInv, setTempInv, tempInvRate, setTempInvRate,
+                isAddingInv, setIsAddingInv, tempAddInv, setTempAddInv, tempAddInvRate, setTempAddInvRate,
+                tempAddInvDate, setTempAddInvDate, editingStockId, setEditingStockId, editStockData, setEditStockData,
+                expandedStocks, setExpandedStocks, dividendForm, setDividendForm, tempDivAmount, setTempDivAmount,
+                tempDivDate, setTempDivDate, sortColumn, sortDirection, isMobile,
+                showSp500, showTaxSection, setShowTaxSection, showValues, lastManualUpdate,
+                importUid, setImportUid, importStatus, setImportStatus, importLoading, setImportLoading,
+                importConfirm, setImportConfirm, user, dbInstance,
+                handleSort, getSortArrow, saveToDb, formatMoney, formatPercent, getRateAtDate,
+                getPositionStats, handleAddPosition, removePosition, removeTransaction,
+                startEditingStock, saveStockEdit, cancelStockEdit, handleAddDividend, removeDividend,
+                handleExcelImport, handleAddCashSubmit, handleAddInvSubmit,
+                calculateTaxSummary, portfolioCurrentDisplay, portfolioProfitDisplay,
+                portfolioProfitPercentDisplay, portfolioDailyProfit, portfolioDailyProfitPercent,
+                portfolioYtdProfit, portfolioYtdProfitPercent, portfolioTotalDividends,
+                dynCost, dynCostUSD,
+                newSymbol, setNewSymbol, newShares, setNewShares, newPrice, setNewPrice,
+                newDate, setNewDate, newCommission, setNewCommission,
+            };
+
             if (!authReady) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-[#030712] text-white">
@@ -736,112 +593,13 @@
                                 className="p-2 bg-gray-800 text-gray-400 hover:text-red-400 rounded-lg border border-gray-700 transition-colors"
                                 title={`התנתק (${user && user.email ? user.email : 'משתמש'})`}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                                <IconSignOut />
                             </button>
                         </div>
                     </header>
 
-                    {/* Settings Panel */}
-                    {showSettings && (
-                        <div className="bg-gray-850 p-4 rounded-xl border border-gray-700 shadow-md animate-fade-in">
-                            <h3 className="text-lg font-semibold mb-3 text-gray-200">הגדרות מתקדמות</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Finnhub API Key (לנתוני אמת)</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="password"
-                                            value={tempApiKey}
-                                            onChange={(e) => setTempApiKey(e.target.value.trim())}
-                                            placeholder="הכנס מפתח API כאן..."
-                                            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-portfolio transition-colors"
-                                        />
-                                        <button
-                                            onClick={() => saveToDb(undefined, undefined, tempApiKey, undefined, undefined, undefined, undefined, { manualUpdate: false })}
-                                            className="bg-portfolio hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
-                                        >
-                                            שמור והתחבר
-                                        </button>
-                                    </div>
-                                    {apiError ? (
-                                        <p className="text-xs text-red-400 mt-1">{apiError}</p>
-                                    ) : (
-                                        <p className="text-xs text-gray-500 mt-1">ללא מפתח יוצגו נתוני דמה (Mock Data) להמחשה. המפתח נשמר בחשבון הענן שלך.</p>
-                                    )}
-                                </div>
-                                <div>
-                                    <label className="block text-sm text-gray-400 mb-1">שער דולר נוכחי (לחישוב שווי יומי)</label>
-                                    <input
-                                        type="number"
-                                        step="0.001"
-                                        value={exchangeRate}
-                                        onChange={(e) => {
-                                            const val = parseFloat(e.target.value);
-                                            if (!isNaN(val)) setExchangeRate(val);
-                                        }}
-                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-portfolio transition-colors"
-                                    />
-                                    <p className="text-xs text-gray-500 mt-1">נמשך אוטומטית בהתחלה, אך ניתן לדייק ידנית.</p>
-                                </div>
-                            </div>
-
-                            {/* Import from Anonymous User */}
-                            <div className="mt-4 border-t border-gray-700 pt-4">
-                                <label className="block text-sm text-gray-400 mb-1">ייבוא תיק מחשבון אנונימי</label>
-                                <p className="text-xs text-gray-500 mb-2">הדבק את ה-UID של החשבון האנונימי (מ-Firebase Console) כדי לייבא את נתוני התיק לחשבונך הנוכחי. הפעולה תדרוס את הנתונים הקיימים בחשבון הנוכחי.</p>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={importUid}
-                                        onChange={(e) => { setImportUid(e.target.value.trim()); setImportStatus(null); setImportConfirm(false); }}
-                                        placeholder="הדבק User UID כאן..."
-                                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-yellow-500 transition-colors font-mono"
-                                        dir="ltr"
-                                    />
-                                    {!importConfirm ? (
-                                        <button
-                                            onClick={() => { if (importUid) setImportConfirm(true); }}
-                                            disabled={!importUid || importLoading}
-                                            className="bg-yellow-600 hover:bg-yellow-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
-                                        >
-                                            ייבא
-                                        </button>
-                                    ) : (
-                                        <div className="flex gap-1">
-                                            <button
-                                                onClick={async () => {
-                                                    setImportLoading(true);
-                                                    setImportConfirm(false);
-                                                    const result = await window.importFromAnonymousUser({ user, dbInstance }, importUid);
-                                                    setImportStatus(result);
-                                                    setImportLoading(false);
-                                                    if (result.ok) setImportUid('');
-                                                }}
-                                                disabled={importLoading}
-                                                className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
-                                            >
-                                                {importLoading ? 'מייבא...' : 'אשר'}
-                                            </button>
-                                            <button
-                                                onClick={() => setImportConfirm(false)}
-                                                className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors text-sm"
-                                            >
-                                                ביטול
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                                {importConfirm && (
-                                    <p className="text-xs text-yellow-400 mt-1">⚠️ פעולה זו תדרוס את כל הנתונים בחשבון הנוכחי. לחץ "אשר" להמשך.</p>
-                                )}
-                                {importStatus && (
-                                    <p className={`text-xs mt-1 ${importStatus.ok ? 'text-emerald-400' : 'text-red-400'}`}>
-                                        {importStatus.ok ? '✓' : '✗'} {importStatus.message}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    )}
+                    {/* Settings Panel (from js/renderPanels.js) */}
+                    {showSettings && window.renderSettingsPanel(ctx)}
 
                     {/* Chart Section */}
                     {/* Chart View Toggle */}
@@ -1407,201 +1165,12 @@
                         );
                     })()}
 
-                    {/* Summary Cards Row */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
-                        {/* Total Value Card */}
-                        <div className="summary-card card-value">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm text-gray-400 font-medium">שווי תיק</span>
-                                <div className="card-icon">💼</div>
-                            </div>
-                            <div className="text-lg sm:text-2xl font-bold text-white">{formatMoney(portfolioCurrentDisplay)}</div>
-                            <div className="text-xs text-gray-500 mt-1">שער: ₪{exchangeRate.toFixed(2)}</div>
-                        </div>
+                    {/* Summary Cards (from js/renderPanels.js) */}
+                    {window.renderSummaryCards(ctx)}
 
-                        {/* Daily P&L Card */}
-                        <div className={`summary-card card-daily ${portfolioDailyProfit < 0 ? 'negative' : ''}`}>
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm text-gray-400 font-medium">שינוי יומי</span>
-                                <div className="card-icon">{portfolioDailyProfit >= 0 ? '📈' : '📉'}</div>
-                            </div>
-                            <div className={`text-lg sm:text-2xl font-bold ${portfolioDailyProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {portfolioDailyProfit >= 0 ? '+' : ''}{formatMoney(portfolioDailyProfit)}
-                            </div>
-                            <div className={`text-xs mt-1 ${portfolioDailyProfitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {formatPercent(portfolioDailyProfitPercent)}
-                            </div>
-                        </div>
+                    {/* Tax Summary (from js/renderPanels.js) */}
+                    {window.renderTaxSection(ctx)}
 
-                        {/* Total Profit Card */}
-                        <div className={`summary-card card-total ${portfolioProfitDisplay < 0 ? 'negative' : ''}`}>
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm text-gray-400 font-medium">רווח כולל</span>
-                                <div className="card-icon">{portfolioProfitDisplay >= 0 ? '🏆' : '📊'}</div>
-                            </div>
-                            <div className={`text-lg sm:text-2xl font-bold ${portfolioProfitDisplay >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {portfolioProfitDisplay >= 0 ? '+' : ''}{formatMoney(portfolioProfitDisplay)}
-                            </div>
-                            <div className={`text-xs mt-1 ${portfolioProfitPercentDisplay >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {formatPercent(portfolioProfitPercentDisplay)}
-                            </div>
-                        </div>
-
-                        {/* YTD Card */}
-                        <div className={`summary-card card-ytd ${portfolioYtdProfit < 0 ? 'negative' : ''}`}>
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm text-gray-400 font-medium">מתחילת שנה</span>
-                                <div className="card-icon">📅</div>
-                            </div>
-                            <div className={`text-lg sm:text-2xl font-bold ${portfolioYtdProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                {portfolioYtdProfit >= 0 ? '+' : ''}{formatMoney(portfolioYtdProfit)}
-                            </div>
-                            <div className={`text-xs mt-1 ${portfolioYtdProfitPercent >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {formatPercent(portfolioYtdProfitPercent)}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Tax Summary Section */}
-                    {(() => {
-                        const tax = calculateTaxSummary();
-                        const hasDividends = tax.dividends.grossUSD > 0;
-                        const hasSales = tax.capitalGains.details.length > 0;
-                        if (!hasDividends && !hasSales) return null;
-
-                        const fmt = (usd, ils) => currency === 'ILS' ? formatMoney(ils) : formatMoney(usd);
-                        const taxTotal = currency === 'ILS' ? tax.totalTaxILS : tax.totalTaxUSD;
-
-                        return (
-                            <div className="tax-card relative" style={{ position: 'relative' }}>
-                                <div
-                                    className="tax-card-header flex items-center justify-between p-5"
-                                    onClick={() => setShowTaxSection(!showTaxSection)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(99, 102, 241, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
-                                            🏛️
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-white" style={{ margin: 0 }}>סיכום מסים</h3>
-                                            <p className="text-xs text-gray-400" style={{ margin: 0 }}>מס דיבידנדים ורווחי הון ממומשים</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-xs text-gray-400">סה״כ מס משוער</span>
-                                            <span className="text-lg font-bold" style={{ color: '#a78bfa' }}>{fmt(tax.totalTaxUSD, tax.totalTaxILS)}</span>
-                                        </div>
-                                        <span className="text-gray-500 text-lg transition-transform" style={{ transform: showTaxSection ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}>▼</span>
-                                    </div>
-                                </div>
-
-                                {showTaxSection && (
-                                    <div className="tax-content-enter px-5 pb-5">
-                                        {/* Dividend Tax */}
-                                        {hasDividends && (
-                                            <div className="mb-4">
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <span style={{ fontSize: '14px' }}>💰</span>
-                                                    <h4 className="text-sm font-semibold text-indigo-300">מס על דיבידנדים (ניכוי במקור ארה״ב 25%)</h4>
-                                                </div>
-                                                <div style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '12px', padding: '16px' }}>
-                                                    {tax.dividends.details.map((d, i) => (
-                                                        <div key={i} className="tax-row">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-xs font-semibold text-gray-300" style={{ minWidth: '50px' }}>{d.symbol}</span>
-                                                                <span className="text-xs text-gray-500">{d.date}</span>
-                                                            </div>
-                                                            <div className="flex items-center gap-4" dir="ltr">
-                                                                <span className="text-xs text-gray-400">ברוטו: <span className="text-gray-200">{fmt(d.grossUSD, d.grossILS)}</span></span>
-                                                                <span className="text-xs text-red-400">מס: -{fmt(d.withheldUSD, d.withheldILS)}</span>
-                                                                <span className="text-xs text-emerald-400 font-medium">נטו: {fmt(d.netUSD, d.netILS)}</span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                    <div className="tax-row" style={{ borderTop: '1px solid rgba(99, 102, 241, 0.2)', marginTop: '8px', paddingTop: '12px' }}>
-                                                        <span className="text-xs font-semibold text-gray-300">סה״כ דיבידנדים</span>
-                                                        <div className="flex items-center gap-4" dir="ltr">
-                                                            <span className="text-xs text-gray-300">ברוטו: <span className="font-semibold text-white">{fmt(tax.dividends.grossUSD, tax.dividends.grossILS)}</span></span>
-                                                            <span className="text-xs font-semibold text-red-400">מס: -{fmt(tax.dividends.withheldUSD, tax.dividends.withheldILS)}</span>
-                                                            <span className="text-xs font-semibold text-emerald-400">נטו: {fmt(tax.dividends.netUSD, tax.dividends.netILS)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Capital Gains Tax */}
-                                        {hasSales && (
-                                            <div className="mb-4">
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <span style={{ fontSize: '14px' }}>📊</span>
-                                                    <h4 className="text-sm font-semibold text-indigo-300">מס רווחי הון ממומשים (25%)</h4>
-                                                </div>
-                                                <div style={{ background: 'rgba(30, 41, 59, 0.5)', borderRadius: '12px', padding: '16px' }}>
-                                                    {tax.capitalGains.details.map((s, i) => {
-                                                        const isGain = (currency === 'ILS' ? s.gainILS : s.gainUSD) >= 0;
-                                                        return (
-                                                            <div key={i} className="tax-row">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-xs font-semibold text-gray-300" style={{ minWidth: '50px' }}>{s.symbol}</span>
-                                                                    <span className="text-xs text-gray-500">{s.date}</span>
-                                                                    <span className="text-xs text-gray-500">({s.shares} מניות)</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-4" dir="ltr">
-                                                                    <span className="text-xs text-gray-400">תמורה: <span className="text-gray-200">{fmt(s.proceedsUSD, s.proceedsILS)}</span></span>
-                                                                    <span className="text-xs text-gray-400">עלות: <span className="text-gray-200">{fmt(s.costBasisUSD, s.costBasisILS)}</span></span>
-                                                                    <span className={`text-xs font-medium ${isGain ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                                        {isGain ? 'רווח' : 'הפסד'}: {(currency === 'ILS' ? s.gainILS : s.gainUSD) >= 0 ? '+' : ''}{fmt(s.gainUSD, s.gainILS)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    <div className="tax-row" style={{ borderTop: '1px solid rgba(99, 102, 241, 0.2)', marginTop: '8px', paddingTop: '12px' }}>
-                                                        <span className="text-xs font-semibold text-gray-300">סה״כ רווח ממומש</span>
-                                                        <div className="flex items-center gap-4" dir="ltr">
-                                                            <span className={`text-xs font-semibold ${(currency === 'ILS' ? tax.capitalGains.gainILS : tax.capitalGains.gainUSD) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                                {(currency === 'ILS' ? tax.capitalGains.gainILS : tax.capitalGains.gainUSD) >= 0 ? '+' : ''}{fmt(tax.capitalGains.gainUSD, tax.capitalGains.gainILS)}
-                                                            </span>
-                                                            <span className="text-xs font-semibold text-red-400">
-                                                                מס: {fmt(tax.capitalGains.taxUSD, tax.capitalGains.taxILS)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Total Tax */}
-                                        <div className="tax-total-row">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <span style={{ fontSize: '16px' }}>🏛️</span>
-                                                    <span className="text-sm font-bold text-white">סה״כ חבות מס משוערת</span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-lg font-bold" style={{ color: '#a78bfa' }}>
-                                                        {fmt(tax.totalTaxUSD, tax.totalTaxILS)}
-                                                    </span>
-                                                    {currency === 'USD' && (
-                                                        <span className="text-xs text-gray-500">
-                                                            (₪{tax.totalTaxILS.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                                                        </span>
-                                                    )}
-                                                    {currency === 'ILS' && (
-                                                        <span className="text-xs text-gray-500">
-                                                            (${tax.totalTaxUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()}
 
                     {/* Positions Table */}
                     <div className="bg-[#111827] rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
@@ -1609,146 +1178,8 @@
                             <h2 className="text-lg sm:text-xl font-bold text-white">נכסים בתיק</h2>
                         </div>
 
-                        {/* Mobile Card View */}
-                        {isMobile && (() => {
-                            const rateNow = currency === 'ILS' ? exchangeRate : 1;
-                            const cashValue = currency === 'ILS' ? cash * exchangeRate : cash;
-                            const allPositions = positions.filter(pos => getPositionStats(pos).totalShares > 0);
-                            const totalPortValue = allPositions.reduce((sum, pos) => sum + getPositionStats(pos).totalShares * pos.currentPrice * rateNow, 0) + cashValue;
-
-                            return (
-                                <div className="p-3 space-y-3">
-                                    {/* Cash Card */}
-                                    <div className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/40">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">
-                                                    {currency === 'USD' ? '$' : '₪'}
-                                                </div>
-                                                <div>
-                                                    <span className="font-semibold text-gray-200 text-sm">מזומן</span>
-                                                    <div className="text-xs text-gray-500">{totalPortValue > 0 ? ((cashValue / totalPortValue) * 100).toFixed(1) + '% מהתיק' : ''}</div>
-                                                </div>
-                                            </div>
-                                            <div className="text-left">
-                                                <div className="font-bold text-white text-sm">{formatMoney(cashValue)}</div>
-                                                {!isEditingCash && !isAddingCash && (
-                                                    <div className="flex items-center gap-2 mt-1 justify-end">
-                                                        <button onClick={() => { setIsAddingCash(true); setTempAddCash(''); setTempAddCashRate(exchangeRate.toString()); setTempAddCashDate(''); }} className="text-emerald-400 text-xs">+ הוסף</button>
-                                                        <button onClick={() => { setIsEditingCash(true); setTempCash(cash.toString()); setTempCashRate(cashRate !== null ? cashRate.toString() : exchangeRate.toString()); }} className="text-portfolio text-xs">ערוך</button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Position Cards */}
-                                    {allPositions.slice().sort((a, b) => {
-                                        const statsA = getPositionStats(a);
-                                        const statsB = getPositionStats(b);
-                                        const rateAtA = currency === 'ILS' ? getRateAtDate(statsA.earliestDate, exchangeRate) : 1;
-                                        const rateAtB = currency === 'ILS' ? getRateAtDate(statsB.earliestDate, exchangeRate) : 1;
-                                        const valA = statsA.totalShares * a.currentPrice * rateNow;
-                                        const valB = statsB.totalShares * b.currentPrice * rateNow;
-                                        let cmp = valA - valB;
-                                        return sortDirection === 'asc' ? cmp : -cmp;
-                                    }).map(pos => {
-                                        const stats = getPositionStats(pos);
-                                        const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
-                                        const cost = stats.totalCost * rateAtPurchase;
-                                        const value = stats.totalShares * pos.currentPrice * rateNow;
-                                        const profit = value - cost;
-                                        const profitPct = cost > 0 ? (profit / cost) * 100 : 0;
-                                        const weight = totalPortValue > 0 ? ((value / totalPortValue) * 100).toFixed(1) : '0.0';
-                                        const dailyPct = pos.dailyChangePercent;
-                                        const dailyVal = pos.dailyChange !== undefined && pos.dailyChange !== null ? pos.dailyChange * stats.totalShares * rateNow : null;
-
-                                        return (
-                                            <div key={pos.id} className="bg-gray-800/40 rounded-xl p-4 border border-gray-700/40">
-                                                {/* Row 1: Symbol + Value */}
-                                                <div className="flex items-center justify-between mb-3">
-                                                    <div className="flex items-center gap-2.5">
-                                                        <img
-                                                            src={`https://logo.clearbit.com/${pos.symbol.toLowerCase()}.com`}
-                                                            className="stock-logo"
-                                                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                                                            alt={pos.symbol}
-                                                        />
-                                                        <div className="stock-logo-fallback" style={{ display: 'none' }}>{pos.symbol.substring(0, 2)}</div>
-                                                        <div>
-                                                            <div className="font-bold text-white text-sm">{pos.symbol}</div>
-                                                            <div className="text-xs text-gray-500">{stats.totalShares} מניות · {weight}%</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-left">
-                                                        <div className="font-bold text-white text-sm">{formatMoney(value)}</div>
-                                                        <div className="text-xs text-gray-500" dir="ltr">@ {formatMoney(pos.currentPrice * rateNow)}</div>
-                                                    </div>
-                                                </div>
-
-                                                {/* Row 2: Daily + Profit */}
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <div className="flex items-center gap-4">
-                                                        <div>
-                                                            <span className="text-gray-500 ml-1">יומי</span>
-                                                            <span className={dailyVal !== null && dailyVal >= 0 ? 'text-green-400' : 'text-red-400'} dir="ltr">
-                                                                {dailyPct !== undefined && dailyPct !== null ? (dailyPct >= 0 ? '+' : '') + dailyPct.toFixed(2) + '%' : '-'}
-                                                            </span>
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-gray-500 ml-1">רווח</span>
-                                                            <span className={profit >= 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium'} dir="ltr">
-                                                                {(profit >= 0 ? '+' : '') + profitPct.toFixed(1) + '%'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className={`font-semibold ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`} dir="ltr">
-                                                        {(profit >= 0 ? '+' : '')}{formatMoney(profit)}
-                                                    </div>
-                                                </div>
-
-                                                {/* Weight bar */}
-                                                <div className="mt-2.5 w-full h-1 bg-gray-700/40 rounded-full overflow-hidden">
-                                                    <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all" style={{ width: weight + '%' }}></div>
-                                                </div>
-
-                                                {/* Actions */}
-                                                <div className="flex items-center justify-end gap-3 mt-2 pt-2 border-t border-gray-700/30">
-                                                    <button onClick={() => startEditingStock(pos)} className="text-xs text-gray-500 hover:text-portfolio flex items-center gap-1"><IconEdit /> ערוך</button>
-                                                    <button onClick={() => removePosition(pos.id)} className="text-xs text-gray-500 hover:text-red-400 flex items-center gap-1"><IconTrash /> מחק</button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-
-                                    {/* Totals Card */}
-                                    {(() => {
-                                        let totalProfit = 0;
-                                        let totalCost = 0;
-                                        allPositions.forEach(pos => {
-                                            const stats = getPositionStats(pos);
-                                            const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
-                                            totalCost += stats.totalCost * rateAtPurchase;
-                                            totalProfit += (stats.totalShares * pos.currentPrice * rateNow) - (stats.totalCost * rateAtPurchase);
-                                        });
-                                        return (
-                                            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/5 rounded-xl p-4 border-2 border-blue-500/20">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-bold text-white text-sm">סה"כ תיק</span>
-                                                    <span className="font-bold text-white text-base">{formatMoney(totalPortValue)}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between mt-1 text-xs">
-                                                    <span className="text-gray-400">רווח כולל</span>
-                                                    <span className={`font-semibold ${totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`} dir="ltr">
-                                                        {(totalProfit >= 0 ? '+' : '')}{formatMoney(totalProfit)} ({totalCost > 0 ? (totalProfit >= 0 ? '+' : '') + ((totalProfit / totalCost) * 100).toFixed(2) + '%' : '0%'})
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            );
-                        })()}
+                        {/* Mobile Card View (from js/renderTable.js) */}
+                        {isMobile && window.renderMobilePositions(ctx)}
 
                         {/* Desktop Table View */}
                         <div className={isMobile ? 'hidden' : 'overflow-x-auto'}>
@@ -1892,6 +1323,7 @@
                                         </td>
                                     </tr>
 
+                                    {/* Position rows + Totals (from js/renderTable.js) */}
                                     {positions.filter(pos => getPositionStats(pos).totalShares > 0).slice().sort((a, b) => {
                                         const statsA = getPositionStats(a);
                                         const statsB = getPositionStats(b);
@@ -1924,248 +1356,17 @@
                                             default: cmp = valueA - valueB;
                                         }
                                         return sortDirection === 'asc' ? cmp : -cmp;
-                                    }).map(pos => {
-                                        const stats = getPositionStats(pos);
-                                        const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
-                                        const rateNow = currency === 'ILS' ? exchangeRate : 1;
+                                    }).map(pos => window.renderDesktopPositionRow(pos, ctx))}
 
-                                        const cost = stats.totalCost * rateAtPurchase;
-                                        const value = stats.totalShares * pos.currentPrice * rateNow;
-                                        const profit = value - cost;
-                                        const profitPct = cost > 0 ? (profit / cost) * 100 : 0;
-                                        const isEditing = editingStockId === pos.id;
-                                        const isExpanded = expandedStocks[pos.id];
-                                        const hasManyTxns = stats.transactions.length > 1;
-                                        const divTotal = stats.totalDividends;
+                                    {/* Totals Row (from js/renderTable.js) */}
+                                    {window.renderDesktopTotalsRow(ctx)}
 
-                                        return React.createElement(React.Fragment, { key: pos.id },
-                                            React.createElement('tr', { className: 'hover:bg-gray-800/30 transition-colors' + (isExpanded ? ' bg-gray-800/20' : '') },
-                                                React.createElement('td', { className: 'px-2 py-3' },
-                                                    React.createElement('div', { className: 'flex items-center gap-3' },
-                                                        React.createElement('img', {
-                                                            src: `https://logo.clearbit.com/${pos.symbol.toLowerCase()}.com`,
-                                                            className: 'stock-logo',
-                                                            onError: (e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; },
-                                                            alt: pos.symbol
-                                                        }),
-                                                        React.createElement('div', { className: 'stock-logo-fallback', style: { display: 'none' } }, pos.symbol.substring(0, 2)),
-                                                        React.createElement('div', { className: 'flex flex-col' },
-                                                            React.createElement('span', { className: 'font-semibold text-gray-200' }, pos.symbol),
-                                                            hasManyTxns && React.createElement('button', {
-                                                                onClick: () => setExpandedStocks(prev => ({ ...prev, [pos.id]: !prev[pos.id] })),
-                                                                className: 'text-xs text-portfolio hover:text-blue-400 text-right'
-                                                            }, isExpanded ? '▲ הסתר עסקאות' : '▼ ' + stats.transactions.length + ' עסקאות')
-                                                        )
-                                                    )
-                                                ),
-                                                React.createElement('td', { className: 'px-2 py-3 text-gray-400' }, stats.earliestDate),
-                                                React.createElement('td', { className: 'px-2 py-3 text-gray-300' },
-                                                    isEditing ?
-                                                        React.createElement('div', { dir: 'ltr', className: 'flex justify-end' },
-                                                            React.createElement('input', { type: 'number', step: 'any', value: editStockData.shares, onChange: (e) => setEditStockData({ ...editStockData, shares: e.target.value }), className: 'w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-portfolio' })
-                                                        ) : stats.totalShares
-                                                ),
-                                                React.createElement('td', { className: 'px-2 py-3 text-gray-400' },
-                                                    isEditing ?
-                                                        React.createElement('div', { dir: 'ltr', className: 'flex justify-end' },
-                                                            React.createElement('input', { type: 'number', step: 'any', value: editStockData.price, onChange: (e) => setEditStockData({ ...editStockData, price: e.target.value }), className: 'w-24 bg-gray-900 border border-gray-700 rounded px-2 py-1 text-white text-sm focus:outline-none focus:border-portfolio' })
-                                                        ) : formatMoney(stats.avgPrice * rateAtPurchase)
-                                                ),
-                                                React.createElement('td', { className: 'px-2 py-3 text-gray-200 font-medium' }, formatMoney(pos.currentPrice * rateNow)),
-                                                React.createElement('td', { className: 'px-2 py-3' },
-                                                    React.createElement('div', { className: `flex flex-col ${pos.dailyChange !== undefined && pos.dailyChange !== null ? (pos.dailyChange >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-500'}`, dir: 'ltr' },
-                                                        React.createElement('span', { className: 'font-medium text-right' }, pos.dailyChange !== undefined && pos.dailyChange !== null ? (pos.dailyChange >= 0 ? '+' : '') + formatMoney(pos.dailyChange * stats.totalShares * rateNow) : '-'),
-                                                        React.createElement('span', { className: 'text-xs text-right' }, pos.dailyChangePercent !== undefined && pos.dailyChangePercent !== null ? (pos.dailyChangePercent >= 0 ? '+' : '') + pos.dailyChangePercent.toFixed(2) + '%' : '-')
-                                                    )
-                                                ),
-                                                React.createElement('td', { className: 'px-2 py-3' },
-                                                    React.createElement('div', { className: `flex flex-col ${pos.ytdPrice ? (pos.currentPrice - pos.ytdPrice >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-500'}`, dir: 'ltr' },
-                                                        React.createElement('span', { className: 'font-medium text-right' }, pos.ytdPrice ? (pos.currentPrice - pos.ytdPrice >= 0 ? '+' : '') + formatMoney((pos.currentPrice - pos.ytdPrice) * stats.totalShares * rateNow) : '-'),
-                                                        React.createElement('span', { className: 'text-xs text-right' }, pos.ytdPrice > 0 ? (pos.currentPrice - pos.ytdPrice >= 0 ? '+' : '') + (((pos.currentPrice - pos.ytdPrice) / pos.ytdPrice) * 100).toFixed(2) + '%' : '-')
-                                                    )
-                                                ),
-                                                // Dividends column
-                                                React.createElement('td', { className: 'px-2 py-3' },
-                                                    React.createElement('div', { className: 'flex flex-col items-end' },
-                                                        divTotal > 0 ? React.createElement('span', { className: 'text-emerald-400 font-medium' }, '+' + formatMoney(divTotal * rateNow)) : React.createElement('span', { className: 'text-gray-500' }, '-'),
-                                                        dividendForm === pos.id ?
-                                                            React.createElement('div', { className: 'flex items-center gap-1 mt-1', dir: 'ltr' },
-                                                                React.createElement('input', { type: 'number', step: 'any', placeholder: 'Total $', value: tempDivAmount, onChange: e => setTempDivAmount(e.target.value), className: 'w-20 bg-gray-900 border border-emerald-500/50 rounded px-1 py-0.5 text-white text-xs focus:outline-none' }),
-                                                                React.createElement('input', { type: 'date', value: tempDivDate, onChange: e => setTempDivDate(e.target.value), className: 'w-24 bg-gray-900 border border-emerald-500/50 rounded px-1 py-0.5 text-white text-xs focus:outline-none', style: { colorScheme: 'dark' } }),
-                                                                React.createElement('button', { onClick: () => handleAddDividend(pos.id), className: 'text-green-400 hover:text-green-300 text-xs' }, '✓'),
-                                                                React.createElement('button', { onClick: () => setDividendForm(null), className: 'text-red-400 hover:text-red-300 text-xs' }, '✕')
-                                                            )
-                                                        : React.createElement('button', {
-                                                            onClick: () => { setDividendForm(pos.id); setTempDivAmount(''); setTempDivDate(''); },
-                                                            className: 'text-xs text-emerald-400 hover:text-emerald-300 mt-0.5'
-                                                        }, '+ הוסף')
-                                                    )
-                                                ),
-                                                React.createElement('td', { className: 'px-2 py-3 font-bold text-white' }, formatMoney(value)),
-                                                React.createElement('td', { className: 'px-2 py-3' },
-                                                    React.createElement('div', { className: 'flex flex-col gap-1' },
-                                                        React.createElement('span', { className: 'text-gray-300 font-medium text-xs' },
-                                                            portfolioCurrentDisplay > 0 ? ((value / portfolioCurrentDisplay) * 100).toFixed(2) + '%' : '0.00%'
-                                                        ),
-                                                        React.createElement('div', { className: 'weight-bar-container' },
-                                                            React.createElement('div', {
-                                                                className: 'weight-bar-fill',
-                                                                style: { width: (portfolioCurrentDisplay > 0 ? Math.min(((value / portfolioCurrentDisplay) * 100), 100) : 0) + '%' }
-                                                            })
-                                                        )
-                                                    )
-                                                ),
-                                                React.createElement('td', { className: 'px-2 py-3' },
-                                                    React.createElement('div', { className: `flex flex-col ${profit >= 0 ? 'text-green-400' : 'text-red-400'}` },
-                                                        React.createElement('span', { className: 'font-medium' }, (profit >= 0 ? '+' : '') + formatMoney(profit)),
-                                                        React.createElement('span', { className: 'text-xs' }, (profitPct >= 0 ? '+' : '') + profitPct.toFixed(2) + '%')
-                                                    )
-                                                ),
-                                                React.createElement('td', { className: 'px-2 py-3 text-center' },
-                                                    isEditing ?
-                                                        React.createElement('div', { className: 'flex items-center justify-center gap-3' },
-                                                            React.createElement('button', { onClick: () => saveStockEdit(pos.id, stats.earliestDate), className: 'text-green-400 hover:text-green-300', title: 'שמור' }, '✓'),
-                                                            React.createElement('button', { onClick: cancelStockEdit, className: 'text-red-400 hover:text-red-300', title: 'בטל' }, '✕')
-                                                        )
-                                                    : React.createElement('div', { className: 'flex items-center justify-center gap-2' },
-                                                        React.createElement('button', { onClick: () => startEditingStock(pos), className: 'p-2 text-gray-500 hover:text-portfolio hover:bg-blue-500/10 rounded-lg transition-colors', title: 'ערוך' }, React.createElement(IconEdit)),
-                                                        React.createElement('button', { onClick: () => removePosition(pos.id), className: 'p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors', title: 'מחק' }, React.createElement(IconTrash))
-                                                    )
-                                                )
-                                            ),
-                                            // Expanded transactions rows
-                                            isExpanded && stats.transactions.map(txn => {
-                                                const txnRateAtPurchase = currency === 'ILS' ? getRateAtDate(txn.date, exchangeRate) : 1;
-                                                const txnCost = txn.shares * txn.price * txnRateAtPurchase;
-                                                const txnValue = txn.shares * pos.currentPrice * rateNow;
-                                                const txnProfit = txnValue - txnCost;
-                                                const txnProfitPct = txnCost > 0 ? (txnProfit / txnCost) * 100 : 0;
-                                                return React.createElement('tr', { key: txn.id, className: 'bg-gray-800/40 border-r-2 border-portfolio/30' },
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '↳ עסקה'),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, txn.date),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-400' }, txn.shares),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, formatMoney(txn.price * txnRateAtPurchase)),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs font-bold text-gray-300' }, formatMoney(txnValue)),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-gray-500' }, '-'),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs' },
-                                                        React.createElement('span', { className: txnProfit >= 0 ? 'text-green-400' : 'text-red-400' }, (txnProfit >= 0 ? '+' : '') + formatMoney(txnProfit))
-                                                    ),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-center' },
-                                                        stats.transactions.length > 1 ?
-                                                            React.createElement('button', { onClick: () => removeTransaction(pos.id, txn.id), className: 'text-xs text-gray-500 hover:text-red-400', title: 'מחק עסקה' }, '✕')
-                                                        : null
-                                                    )
-                                                );
-                                            }),
-                                            // Expanded dividends rows
-                                            isExpanded && (pos.dividends || []).length > 0 && (pos.dividends || []).map(div =>
-                                                React.createElement('tr', { key: div.id, className: 'bg-emerald-900/10 border-r-2 border-emerald-500/30' },
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-emerald-500', colSpan: 3 }, '💰 דיבידנד ' + div.date),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-emerald-400', colSpan: 2 }, div.amountPerShare ? ('$' + div.amountPerShare.toFixed(4) + '/share') : ('$' + (div.amount || 0).toFixed(2))),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-xs text-emerald-400 font-medium', colSpan: 5 }, '+' + formatMoney((div.totalAmount || div.amount || 0) * rateNow)),
-                                                    React.createElement('td', { className: 'px-2 py-2' }, ''),
-                                                    React.createElement('td', { className: 'px-2 py-2 text-center' },
-                                                        React.createElement('button', { onClick: () => removeDividend(pos.id, div.id), className: 'text-xs text-gray-500 hover:text-red-400' }, '✕')
-                                                    )
-                                                )
-                                            )
-                                        );
-                                    })}
-
-                                    {/* Totals Row */}
-                                    {(() => {
-                                        const rateNow = currency === 'ILS' ? exchangeRate : 1;
-                                        let totalDailyChange = 0;
-                                        let totalValue = currency === 'ILS' ? cash * exchangeRate : cash;
-                                        let totalProfit = 0;
-                                        let totalCost = 0;
-
-                                        positions.forEach(pos => {
-                                            const stats = getPositionStats(pos);
-                                            const rateAtPurchase = currency === 'ILS' ? getRateAtDate(stats.earliestDate, exchangeRate) : 1;
-                                            const cost = stats.totalCost * rateAtPurchase;
-                                            const value = stats.totalShares * pos.currentPrice * rateNow;
-                                            totalValue += value;
-                                            totalCost += cost;
-                                            totalProfit += (value - cost);
-                                            if (pos.dailyChange !== undefined && pos.dailyChange !== null) {
-                                                totalDailyChange += pos.dailyChange * stats.totalShares * rateNow;
-                                            }
-                                        });
-
-                                        return React.createElement('tr', { className: 'totals-row font-bold' },
-                                            React.createElement('td', { className: 'px-2 py-3 text-white text-base' }, '📊 סה\"כ'),
-                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
-                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
-                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
-                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
-                                            React.createElement('td', { className: 'px-2 py-3' },
-                                                React.createElement('div', { className: `flex flex-col ${totalDailyChange >= 0 ? 'text-green-400' : 'text-red-400'}`, dir: 'ltr' },
-                                                    React.createElement('span', { className: 'font-bold text-right' }, (totalDailyChange >= 0 ? '+' : '') + formatMoney(totalDailyChange)),
-                                                    React.createElement('span', { className: 'text-xs text-right' }, totalValue - (currency === 'ILS' ? cash * exchangeRate : cash) > 0 ? (totalDailyChange >= 0 ? '+' : '') + ((totalDailyChange / (totalValue - (currency === 'ILS' ? cash * exchangeRate : cash) - totalDailyChange)) * 100).toFixed(2) + '%' : '')
-                                                )
-                                            ),
-                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
-                                            React.createElement('td', { className: 'px-2 py-3' }, ''),
-                                            React.createElement('td', { className: 'px-2 py-3 text-white' }, formatMoney(totalValue)),
-                                            React.createElement('td', { className: 'px-2 py-3 text-gray-300' }, '100%'),
-                                            React.createElement('td', { className: 'px-2 py-3' },
-                                                React.createElement('div', { className: `flex flex-col ${totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}` },
-                                                    React.createElement('span', { className: 'font-bold' }, (totalProfit >= 0 ? '+' : '') + formatMoney(totalProfit)),
-                                                    React.createElement('span', { className: 'text-xs' }, totalCost > 0 ? (totalProfit >= 0 ? '+' : '') + ((totalProfit / totalCost) * 100).toFixed(2) + '%' : '')
-                                                )
-                                            ),
-                                            React.createElement('td', { className: 'px-2 py-3' }, '')
-                                        );
-                                    })()}
                                 </tbody>
                             </table>
                         </div>
 
-                        {/* Add New Position Form */}
-                        <div className="p-4 sm:p-6 bg-gray-900/50 border-t border-gray-800">
-                            <h3 className="text-sm font-semibold text-gray-400 mb-4">הוסף נכס חדש</h3>
-                            <form onSubmit={handleAddPosition} className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                                <div>
-                                    <input required type="text" placeholder="סמל (למשל AAPL)" value={newSymbol} onChange={e => setNewSymbol(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
-                                </div>
-                                <div>
-                                    <input required type="number" step="any" placeholder="כמות מניות" value={newShares} onChange={e => setNewShares(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
-                                </div>
-                                <div>
-                                    <input required type="number" step="any" placeholder={`שער קנייה ב-${currency}`} value={newPrice} onChange={e => setNewPrice(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
-                                </div>
-                                <div>
-                                    <input required type="date" value={newDate} onChange={e => setNewDate(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm custom-date-input" style={{ colorScheme: 'dark' }} />
-                                </div>
-                                <div>
-                                    <input type="number" step="any" min="0" placeholder={`עמלה ב-${currency}`} value={newCommission} onChange={e => setNewCommission(e.target.value)} className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-portfolio text-sm" />
-                                </div>
-                                <div>
-                                    <button type="submit" className="w-full bg-portfolio hover:bg-blue-600 text-white font-medium rounded-lg px-4 py-2.5 transition-colors shadow-lg shadow-blue-500/20">
-                                        הוסף לתיק
-                                    </button>
-                                </div>
-                            </form>
-
-                            {/* Excel Import */}
-                            <div className="mt-4 pt-4 border-t border-gray-700/50 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                                <label className="cursor-pointer flex items-center gap-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg px-4 py-2.5 transition-colors text-sm font-medium">
-                                    <span>📥 ייבוא מאקסל</span>
-                                    <input
-                                        type="file"
-                                        accept=".xlsx,.xls,.csv"
-                                        onChange={handleExcelImport}
-                                        className="hidden"
-                                    />
-                                </label>
-                                <span className="text-xs text-gray-500">העלה קובץ XLSX עם פירוט תנועות (תאריך, סוג פעולה, שם הנייר, כמות, מחיר)</span>
-                            </div>
-                        </div>
+                        {/* Add Position Form + Excel Import (from js/renderTable.js) */}
+                        {window.renderAddPositionForm(ctx)}
                     </div>
                 </div>
             );
