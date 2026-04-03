@@ -181,6 +181,8 @@
 
             // Version counter — bumped whenever window.spyHistoricalData is refreshed from Firebase
             const [spDataVersion, setSpDataVersion] = useState(0);
+            // Version counter — bumped when per-stock historical prices are loaded
+            const [stockHistoryVersion, setStockHistoryVersion] = useState(0);
 
             // Mobile detection
             const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -267,6 +269,15 @@
                 }
             }, [dbReady, user, dbInstance, apiKey]);
 
+            // 6. Fetch per-stock historical prices from Yahoo Finance (cached in Firebase)
+            useEffect(() => {
+                if (dbReady && user && dbInstance && positions && positions.length > 0) {
+                    window.fetchStockHistoryForPositions({
+                        positions, dbInstance, user, setStockHistoryVersion
+                    });
+                }
+            }, [dbReady, user, dbInstance, positions]);
+
             // FX History helper
             const getRateAtDate = (dateStr, currentRate) => {
                 if (!historicalFX || Object.keys(historicalFX).length === 0) return currentRate;
@@ -302,7 +313,7 @@
                     cashDeposits, historicalFX, getRateAtDate,
                     getPositionStats, getJaggedNoise
                 });
-            }, [positions, cash, exchangeRate, cashRate, historicalFX, dbReady, initialInvestment, investmentRate, currency, spyData, cashDeposits, spDataVersion]);
+            }, [positions, cash, exchangeRate, cashRate, historicalFX, dbReady, initialInvestment, investmentRate, currency, spyData, cashDeposits, spDataVersion, stockHistoryVersion]);
 
             // Calculations
             const formatMoney = (amount) => {

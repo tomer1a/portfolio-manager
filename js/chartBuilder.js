@@ -149,6 +149,9 @@ window.buildChartData = function (params) {
 
             if (sortedTxns.length === 0) return;
 
+            // Check if we have real historical price data for this symbol
+            var stockHistory = (window.stockHistoryCache && window.stockHistoryCache[pos.symbol]) || null;
+
             // Build price anchor timeline from transactions + current price
             var anchors = sortedTxns.map(function (txn) {
                 return { time: new Date(txn.date).getTime(), price: Math.abs(txn.price) };
@@ -164,8 +167,26 @@ window.buildChartData = function (params) {
             });
             uniqueAnchors.sort(function (a, b) { return a.time - b.time; });
 
-            // Piecewise interpolation with subtle noise
+            // Look up real historical close price for a given timestamp
+            var lookupRealPrice = function (time) {
+                if (!stockHistory) return null;
+                var searchDate = new Date(time);
+                // Search backward up to 5 days to find nearest trading day
+                for (var di = 0; di < 5; di++) {
+                    var dk = searchDate.toISOString().split('T')[0];
+                    if (stockHistory[dk] !== undefined) return stockHistory[dk];
+                    searchDate.setDate(searchDate.getDate() - 1);
+                }
+                return null;
+            };
+
+            // Estimate price: use real historical data when available, fall back to interpolation
             var estimatePrice = function (time) {
+                // Try real historical price first
+                var realPrice = lookupRealPrice(time);
+                if (realPrice !== null) return realPrice;
+
+                // Fallback: piecewise interpolation between transaction anchors
                 if (time <= uniqueAnchors[0].time) return uniqueAnchors[0].price;
                 if (time >= uniqueAnchors[uniqueAnchors.length - 1].time) return uniqueAnchors[uniqueAnchors.length - 1].price;
 

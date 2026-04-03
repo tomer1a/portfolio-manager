@@ -356,9 +356,49 @@ window.fetchExchangeRates = async function (ctx) {
 };
 
 /**
+ * Fetch candles from Yahoo Finance chart API with CORS proxy fallback.
+ * Returns array of {t, o, h, l, c} or null on failure.
+ * @param {string} symbol - e.g. "SPY", "AAPL"
+ * @param {string} range - e.g. "5y", "10y", "max"
+ * @param {string} interval - e.g. "1wk", "1d"
+ * @returns {Promise<{timestamps:number[], opens:number[], highs:number[], lows:number[], closes:number[]}|null>}
+ */
+window.fetchYahooCandles = async function (symbol, range, interval) {
+    var url = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(symbol) +
+        '?range=' + range + '&interval=' + interval + '&includePrePost=false';
+
+    var tryFetch = async function (fetchUrl) {
+        var res = await fetch(fetchUrl);
+        if (!res.ok) return null;
+        var json = await res.json();
+        var result = json && json.chart && json.chart.result && json.chart.result[0];
+        if (!result || !result.timestamp) return null;
+        var q = result.indicators && result.indicators.quote && result.indicators.quote[0];
+        if (!q) return null;
+        return { timestamps: result.timestamp, opens: q.open, highs: q.high, lows: q.low, closes: q.close };
+    };
+
+    // Try direct first, then CORS proxies
+    var proxies = [
+        '',
+        'https://corsproxy.io/?url=',
+        'https://api.allorigins.win/raw?url='
+    ];
+    for (var i = 0; i < proxies.length; i++) {
+        try {
+            var fullUrl = proxies[i] ? proxies[i] + encodeURIComponent(url) : url;
+            var data = await tryFetch(fullUrl);
+            if (data) return data;
+        } catch (e) { /* try next proxy */ }
+    }
+    return null;
+};
+
+/**
  * Load S&P 500 weekly historical data from Firebase (global, shared across all users).
  * Seeds Firebase on first run using the hardcoded fallback in spData.js.
- * Fetches fresh weekly candles from Finnhub if data is older than 7 days.
+ * Fetches fresh weekly candles from Yahoo Finance if data is older than 7 days.
+ * Falls back to Finnhub if Yahoo Finance is unavailable.
  * Updates window.spyHistoricalData so chartBuilder.js picks it up, then
  * calls ctx.setSpDataVersion to trigger a React re-render.
  *
@@ -407,48 +447,68 @@ window.loadSp500WeeklyData = async function (ctx) {
             }
         }
 
-        // Weekly update: fetch fresh candles from Finnhub when data is stale (> 7 days old)
+        // Weekly update: fetch fresh candles when data is stale (> 7 days old)
         var needsUpdate = !lastUpdated || (Date.now() - lastUpdated.getTime() > 7 * 24 * 60 * 60 * 1000);
 
-        if (needsUpdate && apiKey) {
-            var toTs   = Math.floor(Date.now() / 1000);
-            var fromTs = Math.floor((Date.now() - 2 * 365 * 24 * 60 * 60 * 1000) / 1000); // 2 years back
-
+        if (needsUpdate) {
             try {
-                var res = await fetch(
-                    'https://finnhub.io/api/v1/stock/candle?symbol=SPY&resolution=W&from=' +
-                    fromTs + '&to=' + toTs + '&token=' + apiKey
-                );
-                if (res.ok) {
-                    var candles = await res.json();
-                    if (candles && candles.s === 'ok' && candles.t && candles.t.length > 0) {
-                        var newEntries = {};
-                        candles.t.forEach(function (ts, idx) {
-                            // Normalize the candle timestamp to the Sunday that starts the trading week
-                            // (matches the key format used in spData.js)
-                            var d = new Date(ts * 1000);
-                            var dayOfWeek = d.getUTCDay(); // 0=Sun, 1=Mon … 6=Sat
-                            var sundayMs  = d.getTime() - dayOfWeek * 24 * 60 * 60 * 1000;
-                            var dateKey   = new Date(sundayMs).toISOString().split('T')[0];
-                            newEntries[dateKey] = {
-                                open:  candles.o[idx],
-                                high:  candles.h[idx],
-                                low:   candles.l[idx],
-                                close: candles.c[idx]
-                            };
-                        });
+                // Try Yahoo Finance first (up to 10 years of weekly data, no API key needed)
+                var yahooData = await window.fetchYahooCandles('SPY', '10y', '1wk');
+                var newEntries = {};
 
-                        mergedHistory = Object.assign({}, mergedHistory, newEntries);
-
-                        await docRef.set(
-                            { history: mergedHistory, lastUpdated: new Date().toISOString() },
-                            { merge: true }
-                        );
-                        console.log('SP500 weekly data refreshed in Firebase (+' + Object.keys(newEntries).length + ' weeks)');
+                if (yahooData) {
+                    yahooData.timestamps.forEach(function (ts, idx) {
+                        if (yahooData.closes[idx] == null) return;
+                        var d = new Date(ts * 1000);
+                        var dayOfWeek = d.getUTCDay();
+                        var sundayMs  = d.getTime() - dayOfWeek * 24 * 60 * 60 * 1000;
+                        var dateKey   = new Date(sundayMs).toISOString().split('T')[0];
+                        newEntries[dateKey] = {
+                            open:  yahooData.opens[idx],
+                            high:  yahooData.highs[idx],
+                            low:   yahooData.lows[idx],
+                            close: yahooData.closes[idx]
+                        };
+                    });
+                    console.log('SP500 weekly data fetched from Yahoo Finance (' + Object.keys(newEntries).length + ' weeks)');
+                } else if (apiKey) {
+                    // Fallback to Finnhub (limited to ~1 year on free tier)
+                    var toTs   = Math.floor(Date.now() / 1000);
+                    var fromTs = Math.floor((Date.now() - 2 * 365 * 24 * 60 * 60 * 1000) / 1000);
+                    var res = await fetch(
+                        'https://finnhub.io/api/v1/stock/candle?symbol=SPY&resolution=W&from=' +
+                        fromTs + '&to=' + toTs + '&token=' + apiKey
+                    );
+                    if (res.ok) {
+                        var candles = await res.json();
+                        if (candles && candles.s === 'ok' && candles.t && candles.t.length > 0) {
+                            candles.t.forEach(function (ts, idx) {
+                                var d = new Date(ts * 1000);
+                                var dayOfWeek = d.getUTCDay();
+                                var sundayMs  = d.getTime() - dayOfWeek * 24 * 60 * 60 * 1000;
+                                var dateKey   = new Date(sundayMs).toISOString().split('T')[0];
+                                newEntries[dateKey] = {
+                                    open:  candles.o[idx],
+                                    high:  candles.h[idx],
+                                    low:   candles.l[idx],
+                                    close: candles.c[idx]
+                                };
+                            });
+                            console.log('SP500 weekly data fetched from Finnhub fallback (' + Object.keys(newEntries).length + ' weeks)');
+                        }
                     }
                 }
+
+                if (Object.keys(newEntries).length > 0) {
+                    mergedHistory = Object.assign({}, mergedHistory, newEntries);
+                    await docRef.set(
+                        { history: mergedHistory, lastUpdated: new Date().toISOString() },
+                        { merge: true }
+                    );
+                    console.log('SP500 weekly data saved to Firebase (total ' + Object.keys(mergedHistory).length + ' weeks)');
+                }
             } catch (e) {
-                console.error('Failed to fetch/update SP500 weekly data from Finnhub', e);
+                console.error('Failed to fetch/update SP500 weekly data', e);
             }
         }
 
@@ -463,7 +523,7 @@ window.loadSp500WeeklyData = async function (ctx) {
 };
 
 /**
- * Fetch realtime stock prices from Finnhub API + S&P 500 data.
+ * Fetch realtime stock prices from Finnhub API + S&P 500 data (via Yahoo Finance with Finnhub fallback).
  * @param {Object} ctx - { positions, apiKey, user, dbInstance, setLoading, setApiError, setSpyData, saveToDb, getPositionStats }
  */
 window.fetchRealtimePrices = async function (ctx) {
@@ -475,11 +535,6 @@ window.fetchRealtimePrices = async function (ctx) {
     var errorOccurred = false;
     var hasChanges = false;
     var currentYear = new Date().getFullYear();
-    var todayForSpy = new Date();
-    var oneYearAgoSpy = new Date(todayForSpy.getTime() - 365 * 24 * 60 * 60 * 1000);
-    var spyFromTs = Math.floor(oneYearAgoSpy.getTime() / 1000);
-    var spyToTs = Math.floor(todayForSpy.getTime() / 1000);
-
     try {
         var fetchedSpyCurrent = null;
         var fetchedSpyMap = {};
@@ -501,17 +556,35 @@ window.fetchRealtimePrices = async function (ctx) {
             } catch (e) { console.error("Failed to load SPY history from cloud", e); }
         }
 
-        var resSpy = await fetch('https://finnhub.io/api/v1/stock/candle?symbol=SPY&resolution=D&from=' + spyFromTs + '&to=' + spyToTs + '&token=' + key);
+        // Try Yahoo Finance first (up to 5 years of daily data)
         var hasNewSpyDataToSave = false;
-        if (resSpy.ok) {
-            var dataSpy = await resSpy.json();
-            if (dataSpy && dataSpy.s === 'ok' && dataSpy.c && dataSpy.c.length > 0) {
-                dataSpy.t.forEach(function (ts, idx) {
-                    var dateKey = new Date(ts * 1000).toISOString().split('T')[0];
-                    fetchedSpyMap[dateKey] = dataSpy.c[idx];
-                    if (cloudSpyHistory[dateKey] === undefined) hasNewSpyDataToSave = true;
-                });
+        var yahooDaily = await window.fetchYahooCandles('SPY', '5y', '1d');
+        if (yahooDaily) {
+            yahooDaily.timestamps.forEach(function (ts, idx) {
+                if (yahooDaily.closes[idx] == null) return;
+                var dateKey = new Date(ts * 1000).toISOString().split('T')[0];
+                fetchedSpyMap[dateKey] = yahooDaily.closes[idx];
+                if (cloudSpyHistory[dateKey] === undefined) hasNewSpyDataToSave = true;
+            });
+            console.log('SPY daily data fetched from Yahoo Finance (' + Object.keys(fetchedSpyMap).length + ' days)');
+        } else {
+            // Fallback to Finnhub (limited to ~1 year on free tier)
+            var todayForSpy = new Date();
+            var oneYearAgoSpy = new Date(todayForSpy.getTime() - 365 * 24 * 60 * 60 * 1000);
+            var spyFromTs = Math.floor(oneYearAgoSpy.getTime() / 1000);
+            var spyToTs = Math.floor(todayForSpy.getTime() / 1000);
+            var resSpy = await fetch('https://finnhub.io/api/v1/stock/candle?symbol=SPY&resolution=D&from=' + spyFromTs + '&to=' + spyToTs + '&token=' + key);
+            if (resSpy.ok) {
+                var dataSpy = await resSpy.json();
+                if (dataSpy && dataSpy.s === 'ok' && dataSpy.c && dataSpy.c.length > 0) {
+                    dataSpy.t.forEach(function (ts, idx) {
+                        var dateKey = new Date(ts * 1000).toISOString().split('T')[0];
+                        fetchedSpyMap[dateKey] = dataSpy.c[idx];
+                        if (cloudSpyHistory[dateKey] === undefined) hasNewSpyDataToSave = true;
+                    });
+                }
             }
+            console.log('SPY daily data fetched from Finnhub fallback');
         }
 
         var mergedSpyMap = Object.assign({}, cloudSpyHistory, fetchedSpyMap);
@@ -591,4 +664,97 @@ window.fetchRealtimePrices = async function (ctx) {
         } catch (error) { console.error("Error fetching data:", error); }
     }
     ctx.setLoading(false);
+};
+
+/**
+ * Fetch and cache historical daily close prices for all portfolio stock symbols.
+ * Uses Yahoo Finance (via fetchYahooCandles) with Firebase caching.
+ * Stores result in window.stockHistoryCache = { "AAPL": { "2023-01-05": 125.3, ... }, ... }
+ *
+ * Firebase path: artifacts/{projectId}/global_market_data/stock_history_{SYMBOL}
+ *
+ * @param {Object} ctx - { positions, dbInstance, user, setStockHistoryVersion }
+ */
+window.fetchStockHistoryForPositions = async function (ctx) {
+    var positions = ctx.positions;
+    var db = ctx.dbInstance;
+    var user = ctx.user;
+    if (!positions || positions.length === 0 || !db || !user) return;
+
+    if (!window.stockHistoryCache) window.stockHistoryCache = {};
+
+    var appId = window.__app_id || 'default-app-id';
+    var symbols = [];
+    positions.forEach(function (pos) {
+        if (pos.symbol && symbols.indexOf(pos.symbol) === -1) {
+            symbols.push(pos.symbol);
+        }
+    });
+
+    var hasNewData = false;
+
+    for (var i = 0; i < symbols.length; i++) {
+        var symbol = symbols[i];
+
+        // Skip if already loaded this session
+        if (window.stockHistoryCache[symbol] && Object.keys(window.stockHistoryCache[symbol]).length > 50) continue;
+
+        try {
+            // Load from Firebase cache first
+            var docRef = db.collection('artifacts').doc(appId)
+                .collection('global_market_data').doc('stock_history_' + symbol);
+            var snap = await docRef.get();
+            var cachedHistory = {};
+            var lastUpdated = null;
+
+            if (snap.exists) {
+                var docData = snap.data();
+                cachedHistory = docData.history || {};
+                lastUpdated = docData.lastUpdated ? new Date(docData.lastUpdated) : null;
+            }
+
+            // Refresh if stale (> 1 day old) or empty
+            var needsUpdate = !lastUpdated || (Date.now() - lastUpdated.getTime() > 24 * 60 * 60 * 1000);
+
+            if (needsUpdate) {
+                var yahooData = await window.fetchYahooCandles(symbol, '10y', '1d');
+                if (yahooData) {
+                    var freshHistory = {};
+                    yahooData.timestamps.forEach(function (ts, idx) {
+                        if (yahooData.closes[idx] == null) return;
+                        var dateKey = new Date(ts * 1000).toISOString().split('T')[0];
+                        freshHistory[dateKey] = yahooData.closes[idx];
+                    });
+
+                    // Merge: cached first, fresh on top
+                    var merged = Object.assign({}, cachedHistory, freshHistory);
+                    window.stockHistoryCache[symbol] = merged;
+                    hasNewData = true;
+
+                    // Save to Firebase
+                    try {
+                        await docRef.set({
+                            history: merged,
+                            lastUpdated: new Date().toISOString()
+                        }, { merge: true });
+                        console.log('Stock history saved for ' + symbol + ' (' + Object.keys(merged).length + ' days)');
+                    } catch (e) { console.error('Failed to save stock history for ' + symbol, e); }
+                } else if (Object.keys(cachedHistory).length > 0) {
+                    // Yahoo failed but we have cached data
+                    window.stockHistoryCache[symbol] = cachedHistory;
+                    hasNewData = true;
+                }
+            } else {
+                // Cache is fresh, use it
+                window.stockHistoryCache[symbol] = cachedHistory;
+                hasNewData = true;
+            }
+        } catch (e) {
+            console.error('Failed to load stock history for ' + symbol, e);
+        }
+    }
+
+    if (hasNewData && ctx.setStockHistoryVersion) {
+        ctx.setStockHistoryVersion(function (prev) { return prev + 1; });
+    }
 };
