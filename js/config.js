@@ -33,6 +33,11 @@ window.normalizeSymbol = function (sym) {
     return window.SYMBOL_ALIASES[upper] || upper;
 };
 
+// ---------- S&P 500 Historical Data (fallback) ----------
+// Actual data is loaded from Firebase by loadSp500WeeklyData() in api.js.
+// This empty object ensures window.spyHistoricalData exists before anything reads it.
+window.spyHistoricalData = {};
+
 // ---------- Fallback Demo Positions ----------
 // Used when cloud data is unavailable (first-time users / offline mode).
 window.initialPositions = [

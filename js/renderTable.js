@@ -59,6 +59,34 @@
                             h('button', { onClick: function () { ctx.setIsEditingCash(true); ctx.setTempCash(ctx.cash.toString()); ctx.setTempCashRate(ctx.cashRate !== null ? ctx.cashRate.toString() : ctx.exchangeRate.toString()); }, className: 'text-portfolio text-xs' }, 'ערוך')
                         )
                     )
+                ),
+                // Mobile cash edit form
+                ctx.isEditingCash && h('div', { className: 'mt-3 pt-3 border-t border-gray-700/30' },
+                    h('div', { className: 'flex items-center gap-2', dir: 'ltr' },
+                        h('input', { type: 'number', step: 'any', value: ctx.tempCash, placeholder: '$', onChange: function (e) { ctx.setTempCash(e.target.value); }, className: 'flex-1 bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-portfolio', autoFocus: true }),
+                        h('span', { className: 'text-gray-500 text-xs' }, '@'),
+                        h('input', { type: 'number', step: 'any', value: ctx.tempCashRate, placeholder: '₪ Rate', onChange: function (e) { ctx.setTempCashRate(e.target.value); }, className: 'w-20 bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-portfolio' })
+                    ),
+                    h('div', { className: 'flex items-center justify-end gap-3 mt-2' },
+                        h('button', { onClick: function () { ctx.setIsEditingCash(false); }, className: 'text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-400/30' }, '✕ בטל'),
+                        h('button', { onClick: function () { ctx.saveToDb(undefined, parseFloat(ctx.tempCash) || 0, undefined, undefined, parseFloat(ctx.tempCashRate) || ctx.exchangeRate, undefined); ctx.setIsEditingCash(false); }, className: 'text-xs text-green-400 hover:text-green-300 px-3 py-1.5 rounded-lg border border-green-400/30' }, '✓ שמור')
+                    )
+                ),
+                // Mobile cash add form
+                ctx.isAddingCash && h('div', { className: 'mt-3 pt-3 border-t border-gray-700/30' },
+                    h('div', { className: 'flex items-center gap-2', dir: 'ltr' },
+                        h('span', { className: 'text-emerald-400 font-bold' }, '+'),
+                        h('input', { type: 'number', step: 'any', value: ctx.tempAddCash, placeholder: '$ amount', onChange: function (e) { ctx.setTempAddCash(e.target.value); }, className: 'flex-1 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-400', autoFocus: true })
+                    ),
+                    h('div', { className: 'flex items-center gap-2 mt-2', dir: 'ltr' },
+                        h('input', { type: 'date', value: ctx.tempAddCashDate, onChange: function (e) { ctx.setTempAddCashDate(e.target.value); }, className: 'flex-1 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-400', style: { colorScheme: 'dark' }, title: 'תאריך להשגת השער, או השאר ריק להזנה ידנית' }),
+                        h('span', { className: 'text-gray-500 text-xs' }, '@'),
+                        h('input', { type: 'number', step: 'any', value: ctx.tempAddCashRate, placeholder: '₪ Rate', onChange: function (e) { ctx.setTempAddCashRate(e.target.value); ctx.setTempAddCashDate(''); }, className: 'w-20 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-400', disabled: !!ctx.tempAddCashDate })
+                    ),
+                    h('div', { className: 'flex items-center justify-end gap-3 mt-2' },
+                        h('button', { onClick: function () { ctx.setIsAddingCash(false); }, className: 'text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-400/30' }, '✕ בטל'),
+                        h('button', { onClick: function () { ctx.handleAddCashSubmit(); }, className: 'text-xs text-green-400 hover:text-green-300 px-3 py-1.5 rounded-lg border border-green-400/30' }, '✓ הוסף')
+                    )
                 )
             ),
 
@@ -78,7 +106,9 @@
                 var dailyPct = pos.dailyChangePercent;
                 var dailyVal = pos.dailyChange !== undefined && pos.dailyChange !== null ? pos.dailyChange * stats.totalShares * rateNow : null;
 
-                return h('div', { key: pos.id, className: 'bg-gray-800/40 rounded-xl p-4 border border-gray-700/40' },
+                var isEditing = ctx.editingStockId === pos.id;
+
+                return h('div', { key: pos.id, className: 'bg-gray-800/40 rounded-xl p-4 border border-gray-700/40' + (isEditing ? ' border-portfolio/50' : '') },
                     // Row 1: Symbol + Value
                     h('div', { className: 'flex items-center justify-between mb-3' },
                         h('div', { className: 'flex items-center gap-2.5' },
@@ -99,8 +129,27 @@
                             h('div', { className: 'text-xs text-gray-500', dir: 'ltr' }, '@ ' + fm(pos.currentPrice * rateNow))
                         )
                     ),
-                    // Row 2: Daily + Profit
-                    h('div', { className: 'flex items-center justify-between text-xs' },
+                    // Edit form (mobile)
+                    isEditing
+                        ? h('div', { className: 'space-y-3 mb-3' },
+                            h('div', { className: 'flex items-center gap-3' },
+                                h('div', { className: 'flex-1' },
+                                    h('label', { className: 'text-xs text-gray-500 block mb-1' }, 'כמות מניות'),
+                                    h('input', { type: 'number', step: 'any', value: ctx.editStockData.shares, onChange: function (e) { ctx.setEditStockData({ shares: e.target.value, price: ctx.editStockData.price }); }, className: 'w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-portfolio' })
+                                ),
+                                h('div', { className: 'flex-1' },
+                                    h('label', { className: 'text-xs text-gray-500 block mb-1' }, 'מחיר קנייה'),
+                                    h('input', { type: 'number', step: 'any', value: ctx.editStockData.price, onChange: function (e) { ctx.setEditStockData({ shares: ctx.editStockData.shares, price: e.target.value }); }, className: 'w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-portfolio' })
+                                )
+                            ),
+                            h('div', { className: 'flex items-center justify-end gap-3' },
+                                h('button', { onClick: function () { ctx.cancelStockEdit(); }, className: 'text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-400/30' }, '✕ בטל'),
+                                h('button', { onClick: function () { ctx.saveStockEdit(pos.id, stats.earliestDate); }, className: 'text-xs text-green-400 hover:text-green-300 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-green-400/30' }, '✓ שמור')
+                            )
+                        )
+                        : null,
+                    // Row 2: Daily + Profit (hidden when editing)
+                    !isEditing ? h('div', { className: 'flex items-center justify-between text-xs' },
                         h('div', { className: 'flex items-center gap-4' },
                             h('div', null,
                                 h('span', { className: 'text-gray-500 ml-1' }, 'יומי'),
@@ -115,16 +164,38 @@
                         ),
                         h('div', { className: 'font-semibold ' + (profit >= 0 ? 'text-green-400' : 'text-red-400'), dir: 'ltr' },
                             (profit >= 0 ? '+' : '') + fm(profit))
-                    ),
+                    ) : null,
                     // Weight bar
-                    h('div', { className: 'mt-2.5 w-full h-1 bg-gray-700/40 rounded-full overflow-hidden' },
+                    !isEditing ? h('div', { className: 'mt-2.5 w-full h-1 bg-gray-700/40 rounded-full overflow-hidden' },
                         h('div', { className: 'h-full rounded-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all', style: { width: weight + '%' } })
-                    ),
-                    // Actions
-                    h('div', { className: 'flex items-center justify-end gap-3 mt-2 pt-2 border-t border-gray-700/30' },
+                    ) : null,
+                    // Dividends
+                    !isEditing ? (function () {
+                        var divTotal = stats.totalDividends || 0;
+                        return h('div', { className: 'flex items-center justify-between mt-2 text-xs' },
+                            h('div', { className: 'flex items-center gap-2' },
+                                h('span', { className: 'text-gray-500' }, 'דיבידנדים'),
+                                divTotal > 0
+                                    ? h('span', { className: 'text-emerald-400 font-medium' }, '+' + fm(divTotal * rateNow))
+                                    : h('span', { className: 'text-gray-500' }, '-')
+                            ),
+                            ctx.dividendForm === pos.id
+                                ? null
+                                : h('button', { onClick: function () { ctx.setDividendForm(pos.id); ctx.setTempDivAmount(''); ctx.setTempDivDate(''); }, className: 'text-emerald-400 hover:text-emerald-300' }, '+ הוסף')
+                        );
+                    })() : null,
+                    // Dividend add form (mobile)
+                    !isEditing && ctx.dividendForm === pos.id ? h('div', { className: 'mt-2 flex items-center gap-2', dir: 'ltr' },
+                        h('input', { type: 'number', step: 'any', placeholder: 'Total $', value: ctx.tempDivAmount, onChange: function (e) { ctx.setTempDivAmount(e.target.value); }, className: 'flex-1 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none', autoFocus: true }),
+                        h('input', { type: 'date', value: ctx.tempDivDate, onChange: function (e) { ctx.setTempDivDate(e.target.value); }, className: 'flex-1 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none', style: { colorScheme: 'dark' } }),
+                        h('button', { onClick: function () { ctx.handleAddDividend(pos.id); }, className: 'text-green-400 hover:text-green-300 text-sm' }, '✓'),
+                        h('button', { onClick: function () { ctx.setDividendForm(null); }, className: 'text-red-400 hover:text-red-300 text-sm' }, '✕')
+                    ) : null,
+                    // Actions (hidden when editing)
+                    !isEditing ? h('div', { className: 'flex items-center justify-end gap-3 mt-2 pt-2 border-t border-gray-700/30' },
                         h('button', { onClick: function () { ctx.startEditingStock(pos); }, className: 'text-xs text-gray-500 hover:text-portfolio flex items-center gap-1' }, h(window.IconEdit), ' ערוך'),
                         h('button', { onClick: function () { ctx.removePosition(pos.id); }, className: 'text-xs text-gray-500 hover:text-red-400 flex items-center gap-1' }, h(window.IconTrash), ' מחק')
-                    )
+                    ) : null
                 );
             }),
 
