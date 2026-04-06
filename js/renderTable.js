@@ -81,13 +81,39 @@
                     h('div', { className: 'flex items-center gap-2 mt-2', dir: 'ltr' },
                         h('input', { type: 'date', value: ctx.tempAddCashDate, onChange: function (e) { ctx.setTempAddCashDate(e.target.value); }, className: 'flex-1 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-400', style: { colorScheme: 'dark' }, title: 'תאריך להשגת השער, או השאר ריק להזנה ידנית' }),
                         h('span', { className: 'text-gray-500 text-xs' }, '@'),
-                        h('input', { type: 'number', step: 'any', value: ctx.tempAddCashRate, placeholder: '₪ Rate', onChange: function (e) { ctx.setTempAddCashRate(e.target.value); ctx.setTempAddCashDate(''); }, className: 'w-20 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-400', disabled: !!ctx.tempAddCashDate })
+                        h('input', { type: 'number', step: 'any', value: ctx.tempAddCashRate, placeholder: '₪ Rate', onChange: function (e) { ctx.setTempAddCashRate(e.target.value); }, className: 'w-20 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1.5 text-white text-sm focus:outline-none focus:border-emerald-400' })
                     ),
                     h('div', { className: 'flex items-center justify-end gap-3 mt-2' },
                         h('button', { onClick: function () { ctx.setIsAddingCash(false); }, className: 'text-xs text-red-400 hover:text-red-300 px-3 py-1.5 rounded-lg border border-red-400/30' }, '✕ בטל'),
                         h('button', { onClick: function () { ctx.handleAddCashSubmit(); }, className: 'text-xs text-green-400 hover:text-green-300 px-3 py-1.5 rounded-lg border border-green-400/30' }, '✓ הוסף')
                     )
-                )
+                ),
+                // Expand deposits button (mobile)
+                ctx.cashDeposits && ctx.cashDeposits.length > 1 && !ctx.isEditingCash && !ctx.isAddingCash &&
+                    h('button', {
+                        onClick: function () { ctx.setExpandedCash(!ctx.expandedCash); },
+                        className: 'mt-2 text-xs text-emerald-400 hover:text-emerald-300 w-full text-center'
+                    }, ctx.expandedCash ? '▲ הסתר הפקדות' : '▼ ' + ctx.cashDeposits.length + ' הפקדות'),
+                // Expanded deposit list (mobile)
+                ctx.expandedCash && ctx.cashDeposits && ctx.cashDeposits.map(function (dep) {
+                    var hasRealRate = !!dep.rateManual;
+                    var depRate = hasRealRate ? dep.rate : null;
+                    return h('div', { key: dep.id, className: 'mt-2 pt-2 border-t border-emerald-500/20 flex items-center justify-between text-xs' },
+                        h('div', { className: 'flex items-center gap-2' },
+                            h('span', { className: 'text-emerald-500' }, '↳'),
+                            h('span', { className: 'text-gray-400' }, dep.date),
+                            depRate && h('span', { className: 'text-gray-500' }, '@₪' + depRate.toFixed(2))
+                        ),
+                        h('div', { className: 'flex items-center gap-2' },
+                            h('span', { className: dep.amount >= 0 ? 'text-green-400 font-medium' : 'text-red-400 font-medium' },
+                                (dep.amount >= 0 ? '+' : '') + fm(dep.amount)),
+                            ctx.cashDeposits.length > 1 && h('button', {
+                                onClick: function () { ctx.removeCashDeposit(dep.id); },
+                                className: 'text-gray-500 hover:text-red-400 mr-1', title: 'מחק הפקדה'
+                            }, '✕')
+                        )
+                    );
+                })
             ),
 
             // Position Cards

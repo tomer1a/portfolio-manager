@@ -218,7 +218,7 @@ window.handleAddCashLogic = function (ctx) {
     var addedAmount = parseFloat(ctx.tempAddCash);
     var addedRate = parseFloat(ctx.tempAddCashRate);
 
-    if (ctx.tempAddCashDate) {
+    if (ctx.tempAddCashDate && isNaN(addedRate)) {
         addedRate = ctx.getRateAtDate(ctx.tempAddCashDate, ctx.exchangeRate);
     } else if (isNaN(addedRate)) {
         addedRate = ctx.exchangeRate;
@@ -236,9 +236,38 @@ window.handleAddCashLogic = function (ctx) {
             }
         } else { newCashRate = ctx.exchangeRate; }
 
-        ctx.saveToDb(undefined, newCash, undefined, undefined, newCashRate, undefined);
+        // Record deposit in cashDeposits history
+        var depositDate = ctx.tempAddCashDate || new Date().toISOString().split('T')[0];
+        var newDeposits = (ctx.cashDeposits || []).concat([{
+            id: Date.now().toString(),
+            date: depositDate,
+            amount: addedAmount,
+            rate: addedRate,
+            rateManual: true
+        }]);
+
+        ctx.saveToDb(undefined, newCash, undefined, undefined, newCashRate, undefined, newDeposits);
     }
     ctx.setIsAddingCash(false);
+};
+
+/**
+ * Remove a cash deposit by ID and recalculate cash total and weighted rate.
+ */
+window.removeCashDepositLogic = function (ctx, depositId) {
+    var deposits = ctx.cashDeposits || [];
+    var removed = deposits.find(function (d) { return d.id === depositId; });
+    var newDeposits = deposits.filter(function (d) { return d.id !== depositId; });
+
+    var removedAmount = removed ? removed.amount : 0;
+
+    // Subtract removed deposit from cash total
+    var newCash = ctx.cash - removedAmount;
+
+    // Also subtract from initialInvestment (השקעה נטו) if set
+    var newInitInv = ctx.initialInvestment !== null ? ctx.initialInvestment - removedAmount : undefined;
+
+    ctx.saveToDb(undefined, newCash, undefined, newInitInv, undefined, undefined, newDeposits);
 };
 
 /**

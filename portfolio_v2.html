@@ -156,6 +156,7 @@
             const [newCommission, setNewCommission] = useState('');
 
             // Multi-transaction & dividend states
+            const [expandedCash, setExpandedCash] = useState(false);
             const [expandedStocks, setExpandedStocks] = useState({});
             const [dividendForm, setDividendForm] = useState(null); // symbol being edited
             const [tempDivAmount, setTempDivAmount] = useState('');
@@ -396,8 +397,12 @@
 
             const handleAddCashSubmit = () => window.handleAddCashLogic({
                 tempAddCash, tempAddCashRate, tempAddCashDate, cash, cashRate, exchangeRate,
-                getRateAtDate, saveToDb, setIsAddingCash
+                cashDeposits, getRateAtDate, saveToDb, setIsAddingCash
             });
+
+            const removeCashDeposit = (depositId) => window.removeCashDepositLogic({
+                cashDeposits, cash, initialInvestment, exchangeRate, saveToDb
+            }, depositId);
 
             const handleAddInvSubmit = () => window.handleAddInvLogic({
                 tempAddInv, tempAddInvRate, tempAddInvDate, cash, cashRate, exchangeRate,
@@ -490,6 +495,7 @@
                 isEditingInv, setIsEditingInv, tempInv, setTempInv, tempInvRate, setTempInvRate,
                 isAddingInv, setIsAddingInv, tempAddInv, setTempAddInv, tempAddInvRate, setTempAddInvRate,
                 tempAddInvDate, setTempAddInvDate, editingStockId, setEditingStockId, editStockData, setEditStockData,
+                expandedCash, setExpandedCash, cashDeposits, removeCashDeposit,
                 expandedStocks, setExpandedStocks, dividendForm, setDividendForm, tempDivAmount, setTempDivAmount,
                 tempDivDate, setTempDivDate, sortColumn, sortDirection, isMobile,
                 showSp500, showTaxSection, setShowTaxSection, showValues, lastManualUpdate,
@@ -1215,13 +1221,23 @@
                                 </thead>
                                 <tbody className="divide-y divide-gray-800/50">
                                     {/* Cash Row */}
-                                    <tr className="hover:bg-gray-800/30 transition-colors">
+                                    <tr className={`hover:bg-gray-800/30 transition-colors${expandedCash ? ' bg-gray-800/20' : ''}`}>
                                         <td className="px-2 py-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
                                                     {currency === 'USD' ? '$' : '₪'}
                                                 </div>
-                                                <span className="font-semibold text-gray-200">מזומן</span>
+                                                <div className="flex flex-col">
+                                                    <span className="font-semibold text-gray-200">מזומן</span>
+                                                    {cashDeposits && cashDeposits.length > 1 && (
+                                                        <button
+                                                            onClick={() => setExpandedCash(!expandedCash)}
+                                                            className="text-xs text-emerald-400 hover:text-emerald-300 text-right"
+                                                        >
+                                                            {expandedCash ? '▲ הסתר הפקדות' : `▼ ${cashDeposits.length} הפקדות`}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </td>
                                         <td className="px-2 py-3 text-gray-500">-</td>
@@ -1288,13 +1304,24 @@
                                                             setTempAddCashDate(''); // איפוס התאריך אם מזינים שער ידני
                                                         }}
                                                         className="w-16 bg-gray-900 border border-emerald-500/50 rounded px-2 py-1 text-white text-xs focus:outline-none focus:border-emerald-400"
-                                                        disabled={!!tempAddCashDate} // חסימת השער אם נבחר תאריך
+                                                        // Rate field is always editable — date auto-fills but user can override
                                                     />
                                                     <button onClick={handleAddCashSubmit} className="text-green-400 hover:text-green-300">✓</button>
                                                     <button onClick={() => setIsAddingCash(false)} className="text-red-400 hover:text-red-300">✕</button>
                                                 </div>
                                             ) : (
-                                                formatMoney(currency === 'ILS' ? cash * exchangeRate : cash)
+                                                <div className="flex items-center gap-2 justify-end">
+                                                    <span>{formatMoney(currency === 'ILS' ? cash * exchangeRate : cash)}</span>
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditingCash(true);
+                                                            setTempCash(cash.toString());
+                                                            setTempCashRate(cashRate !== null ? cashRate.toString() : exchangeRate.toString());
+                                                        }}
+                                                        className="text-gray-500 hover:text-portfolio text-xs"
+                                                        title="ערוך מזומן"
+                                                    >✎</button>
+                                                </div>
                                             )}
                                         </td>
                                         <td className="px-2 py-3 text-gray-500">-</td>
@@ -1335,6 +1362,32 @@
                                             )}
                                         </td>
                                     </tr>
+
+                                    {/* Expanded cash deposit rows */}
+                                    {expandedCash && cashDeposits && cashDeposits.map(dep => {
+                                        const hasRealRate = !!dep.rateManual;
+                                        const depRate = hasRealRate ? dep.rate : null;
+                                        return (
+                                            <tr key={dep.id} className="bg-emerald-900/10 border-r-2 border-emerald-500/30">
+                                                <td className="px-2 py-2 text-xs text-emerald-500">↳ הפקדה</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">{dep.date}</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">-</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">{depRate ? `₪${depRate.toFixed(2)}` : '-'}</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">-</td>
+                                                <td className="px-2 py-2 text-xs font-bold text-gray-300">{formatMoney(dep.amount)}</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">-</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">-</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">-</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">-</td>
+                                                <td className="px-2 py-2 text-xs text-gray-500">-</td>
+                                                <td className="px-2 py-2 text-center">
+                                                    {cashDeposits.length > 1 && (
+                                                        <button onClick={() => removeCashDeposit(dep.id)} className="text-xs text-gray-500 hover:text-red-400" title="מחק הפקדה">✕</button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
 
                                     {/* Position rows + Totals (from js/renderTable.js) */}
                                     {positions.filter(pos => getPositionStats(pos).totalShares > 0).slice().sort((a, b) => {
