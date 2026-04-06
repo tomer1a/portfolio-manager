@@ -1310,18 +1310,7 @@
                                                     <button onClick={() => setIsAddingCash(false)} className="text-red-400 hover:text-red-300">✕</button>
                                                 </div>
                                             ) : (
-                                                <div className="flex items-center gap-2 justify-end">
-                                                    <span>{formatMoney(currency === 'ILS' ? cash * exchangeRate : cash)}</span>
-                                                    <button
-                                                        onClick={() => {
-                                                            setIsEditingCash(true);
-                                                            setTempCash(cash.toString());
-                                                            setTempCashRate(cashRate !== null ? cashRate.toString() : exchangeRate.toString());
-                                                        }}
-                                                        className="text-gray-500 hover:text-portfolio text-xs"
-                                                        title="ערוך מזומן"
-                                                    >✎</button>
-                                                </div>
+                                                formatMoney(currency === 'ILS' ? cash * exchangeRate : cash)
                                             )}
                                         </td>
                                         <td className="px-2 py-3 text-gray-500">-</td>
@@ -1334,7 +1323,7 @@
                                         <td className="px-2 py-3 text-gray-500">-</td>
                                         <td className="px-2 py-3 text-center">
                                             {!isEditingCash && !isAddingCash && (
-                                                <div className="flex items-center justify-center gap-3">
+                                                <div className="flex items-center justify-center gap-2">
                                                     <button
                                                         onClick={() => {
                                                             setIsAddingCash(true);
@@ -1342,22 +1331,18 @@
                                                             setTempAddCashRate(exchangeRate.toString());
                                                             setTempAddCashDate('');
                                                         }}
-                                                        className="text-emerald-400 hover:text-emerald-300 text-sm font-medium"
-                                                        title="הפקד/משוך מזומן (יחושב כשער ממוצע מתוקלל)"
-                                                    >
-                                                        + הוסף
-                                                    </button>
+                                                        className="p-2 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors"
+                                                        title="הפקד/משוך מזומן"
+                                                    >+</button>
                                                     <button
                                                         onClick={() => {
                                                             setIsEditingCash(true);
                                                             setTempCash(cash.toString());
                                                             setTempCashRate(cashRate !== null ? cashRate.toString() : exchangeRate.toString());
                                                         }}
-                                                        className="text-portfolio hover:text-blue-400 text-sm"
-                                                        title="דרוס/ערוך סכום בדולרים ושער המרה"
-                                                    >
-                                                        ערוך
-                                                    </button>
+                                                        className="p-2 text-gray-500 hover:text-portfolio hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                        title="ערוך מזומן"
+                                                    ><IconEdit /></button>
                                                 </div>
                                             )}
                                         </td>
