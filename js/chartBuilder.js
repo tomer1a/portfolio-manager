@@ -105,6 +105,14 @@ window.buildChartData = function (params) {
     }
     if (startSp500Index === null) startSp500Index = 4000; // fallback
 
+    // The FX rate at portfolio inception — used as the denominator for S&P ILS
+    // returns.  Mirrors the portfolio cost-basis logic: prefer the user-supplied
+    // investmentRate, then try the historical FX lookup, and finally fall back
+    // to the current live rate.
+    var spStartFXRate = investmentRate !== null
+        ? investmentRate
+        : getRateAtDate(earliestDate, exchangeRate);
+
     var cumulativeSpGrowth = 0;
     var lastRealSpyPrice   = null;
     var previousT          = null;
@@ -325,9 +333,8 @@ window.buildChartData = function (params) {
         }
 
         var spGrowthBase = cumulativeSpGrowth * 100;
-        var rateAtStart  = getRateAtDate(earliestDate, exchangeRate);
         var rateAtTPt    = getRateAtDate(t, exchangeRate);
-        var spGrowthILS  = isFirstPoint ? 0 : (((1 + spGrowthBase / 100) * rateAtTPt) / rateAtStart - 1) * 100;
+        var spGrowthILS  = isFirstPoint ? 0 : (((1 + spGrowthBase / 100) * rateAtTPt) / spStartFXRate - 1) * 100;
 
         data.push({
             dateStr: currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }),
@@ -338,7 +345,8 @@ window.buildChartData = function (params) {
             sp500PercentILS: parseFloat(spGrowthILS.toFixed(2)),
             absoluteValUSD: absoluteValUSD,
             absoluteValILS: absoluteValILS,
-            sp500IndexValue: parseFloat((startSp500Index * (1 + cumulativeSpGrowth)).toFixed(2))
+            sp500IndexValue: parseFloat((startSp500Index * (1 + cumulativeSpGrowth)).toFixed(2)),
+            sp500IndexValueILS: parseFloat((startSp500Index * (1 + cumulativeSpGrowth) * rateAtTPt).toFixed(2))
         });
     }
 
@@ -370,13 +378,13 @@ window.buildChartData = function (params) {
 
             cumulativeSpGrowth = (1 + cumulativeSpGrowth) * (1 + finalGrowth) - 1;
             var finalSpGrowthBase = cumulativeSpGrowth * 100;
-            var finalRateAtStart  = getRateAtDate(earliestDate, exchangeRate);
             var finalRateAtEnd    = getRateAtDate(today, exchangeRate);
-            var finalSpGrowthILS  = (((1 + finalSpGrowthBase / 100) * finalRateAtEnd) / finalRateAtStart - 1) * 100;
+            var finalSpGrowthILS  = (((1 + finalSpGrowthBase / 100) * finalRateAtEnd) / spStartFXRate - 1) * 100;
 
             data[data.length - 1].sp500PercentUSD = parseFloat(finalSpGrowthBase.toFixed(2));
             data[data.length - 1].sp500PercentILS = parseFloat(finalSpGrowthILS.toFixed(2));
             data[data.length - 1].sp500IndexValue = parseFloat((startSp500Index * (1 + cumulativeSpGrowth)).toFixed(2));
+            data[data.length - 1].sp500IndexValueILS = parseFloat((startSp500Index * (1 + cumulativeSpGrowth) * finalRateAtEnd).toFixed(2));
         }
     }
 
