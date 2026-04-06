@@ -51,11 +51,6 @@ window.calculateTotals = function (params) {
     var costUSD = initialInvestment !== null ? initialInvestment : dynCostUSD;
     var costILS = initialInvestment !== null ? initialInvestment * iRate : dynCostILS;
 
-    var prevValUSD = cash;
-    var prevValILS = cash * exchangeRate;
-    var ytdValUSD  = cash;
-    var ytdValILS  = cash * exchangeRate;
-
     // Historical FX rates for accurate daily/YTD changes
     var today        = new Date();
     var yesterday    = new Date(today);
@@ -64,6 +59,11 @@ window.calculateTotals = function (params) {
     var ytdDateStr   = today.getFullYear() + '-01-01';
     var prevRate     = getRateAtDate(yesterdayStr, exchangeRate);
     var ytdRate      = getRateAtDate(ytdDateStr, exchangeRate);
+
+    var prevValUSD = cash;
+    var prevValILS = cash * prevRate;
+    var ytdValUSD  = cash;
+    var ytdValILS  = cash * ytdRate;
 
     positions.forEach(function (pos) {
         var stats     = window.getPositionStats(pos);

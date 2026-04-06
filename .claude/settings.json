@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(node -c js/calculations.js)",
+      "Bash(node -c js/renderTable.js)",
+      "Bash(where.exe node:*)",
+      "Bash(cmd.exe /c \"node -c js\\\\calculations.js && echo calculations OK\")",
+      "Bash(cmd.exe /c \"node -c js\\\\renderTable.js && echo renderTable OK\")"
     ]
   }
 }

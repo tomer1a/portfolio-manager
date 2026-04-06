@@ -132,6 +132,17 @@
                 var dailyPct = pos.dailyChangePercent;
                 var dailyVal = pos.dailyChange !== undefined && pos.dailyChange !== null ? pos.dailyChange * stats.totalShares * rateNow : null;
 
+                // In ILS mode, recalculate daily % to include FX movement
+                if (ctx.currency === 'ILS' && pos.previousClose && pos.previousClose > 0) {
+                    var yd = new Date(); yd.setDate(yd.getDate() - 1);
+                    var yStr = yd.getFullYear() + '-' + String(yd.getMonth() + 1).padStart(2, '0') + '-' + String(yd.getDate()).padStart(2, '0');
+                    var prevFxRate = ctx.getRateAtDate(yStr, ctx.exchangeRate);
+                    var valTodayILS = pos.currentPrice * ctx.exchangeRate;
+                    var valYesterdayILS = pos.previousClose * prevFxRate;
+                    dailyPct = ((valTodayILS - valYesterdayILS) / valYesterdayILS) * 100;
+                    dailyVal = (valTodayILS - valYesterdayILS) * stats.totalShares;
+                }
+
                 var isEditing = ctx.editingStockId === pos.id;
 
                 return h('div', { key: pos.id, className: 'bg-gray-800/40 rounded-xl p-4 border border-gray-700/40' + (isEditing ? ' border-portfolio/50' : '') },
@@ -284,6 +295,19 @@
         var divTotal = stats.totalDividends;
         var fm = ctx.formatMoney;
 
+        // Compute daily change values (ILS-aware)
+        var dailyPct = pos.dailyChangePercent;
+        var dailyVal = pos.dailyChange !== undefined && pos.dailyChange !== null ? pos.dailyChange * stats.totalShares * rateNow : null;
+        if (ctx.currency === 'ILS' && pos.previousClose && pos.previousClose > 0) {
+            var yd = new Date(); yd.setDate(yd.getDate() - 1);
+            var yStr = yd.getFullYear() + '-' + String(yd.getMonth() + 1).padStart(2, '0') + '-' + String(yd.getDate()).padStart(2, '0');
+            var prevFxRate = ctx.getRateAtDate(yStr, ctx.exchangeRate);
+            var valTodayILS = pos.currentPrice * ctx.exchangeRate;
+            var valYesterdayILS = pos.previousClose * prevFxRate;
+            dailyPct = ((valTodayILS - valYesterdayILS) / valYesterdayILS) * 100;
+            dailyVal = (valTodayILS - valYesterdayILS) * stats.totalShares;
+        }
+
         return React.createElement(React.Fragment, { key: pos.id },
             // Main row
             h('tr', { className: 'hover:bg-gray-800/30 transition-colors' + (isExpanded ? ' bg-gray-800/20' : '') },
@@ -321,9 +345,9 @@
                 h('td', { className: 'px-2 py-3 text-gray-200 font-medium' }, fm(pos.currentPrice * rateNow)),
                 // Daily change
                 h('td', { className: 'px-2 py-3' },
-                    h('div', { className: 'flex flex-col ' + (pos.dailyChange !== undefined && pos.dailyChange !== null ? (pos.dailyChange >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-500'), dir: 'ltr' },
-                        h('span', { className: 'font-medium text-right' }, pos.dailyChange !== undefined && pos.dailyChange !== null ? (pos.dailyChange >= 0 ? '+' : '') + fm(pos.dailyChange * stats.totalShares * rateNow) : '-'),
-                        h('span', { className: 'text-xs text-right' }, pos.dailyChangePercent !== undefined && pos.dailyChangePercent !== null ? (pos.dailyChangePercent >= 0 ? '+' : '') + pos.dailyChangePercent.toFixed(2) + '%' : '-')
+                    h('div', { className: 'flex flex-col ' + (dailyVal !== null ? (dailyVal >= 0 ? 'text-green-400' : 'text-red-400') : 'text-gray-500'), dir: 'ltr' },
+                        h('span', { className: 'font-medium text-right' }, dailyVal !== null ? (dailyVal >= 0 ? '+' : '') + fm(dailyVal) : '-'),
+                        h('span', { className: 'text-xs text-right' }, dailyPct !== undefined && dailyPct !== null ? (dailyPct >= 0 ? '+' : '') + dailyPct.toFixed(2) + '%' : '-')
                     )
                 ),
                 // YTD
@@ -442,6 +466,13 @@
         var totalCost = 0;
         var fm = ctx.formatMoney;
 
+        var prevFxRate = rateNow;
+        if (ctx.currency === 'ILS') {
+            var yd2 = new Date(); yd2.setDate(yd2.getDate() - 1);
+            var yStr2 = yd2.getFullYear() + '-' + String(yd2.getMonth() + 1).padStart(2, '0') + '-' + String(yd2.getDate()).padStart(2, '0');
+            prevFxRate = ctx.getRateAtDate(yStr2, ctx.exchangeRate);
+        }
+
         ctx.positions.forEach(function (pos) {
             var stats = ctx.getPositionStats(pos);
             var rateAtPurchase = ctx.currency === 'ILS' ? ctx.getRateAtDate(stats.earliestDate, ctx.exchangeRate) : 1;
@@ -450,7 +481,9 @@
             totalValue += value;
             totalCost += cost;
             totalProfit += (value - cost);
-            if (pos.dailyChange !== undefined && pos.dailyChange !== null) {
+            if (ctx.currency === 'ILS' && pos.previousClose && pos.previousClose > 0) {
+                totalDailyChange += (pos.currentPrice * ctx.exchangeRate - pos.previousClose * prevFxRate) * stats.totalShares;
+            } else if (pos.dailyChange !== undefined && pos.dailyChange !== null) {
                 totalDailyChange += pos.dailyChange * stats.totalShares * rateNow;
             }
         });

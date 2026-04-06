@@ -340,17 +340,29 @@ window.fetchExchangeRates = async function (ctx) {
         }
     } catch (e) { }
 
-    try {
-        var histRes = await fetch('https://api.frankfurter.app/2015-01-01..?from=USD&to=ILS');
-        var histData = await histRes.json();
-        if (histData && histData.rates) {
-            var ratesMap = {};
-            for (var dateStr in histData.rates) {
-                ratesMap[dateStr] = histData.rates[dateStr].ILS;
+    var histUrl = 'https://api.frankfurter.app/2015-01-01..?from=USD&to=ILS';
+    var histProxies = [
+        '',
+        'https://corsproxy.io/?url=',
+        'https://api.allorigins.win/raw?url='
+    ];
+    var histLoaded = false;
+    for (var hi = 0; hi < histProxies.length && !histLoaded; hi++) {
+        try {
+            var histFetchUrl = histProxies[hi] ? histProxies[hi] + encodeURIComponent(histUrl) : histUrl;
+            var histRes = await fetch(histFetchUrl);
+            var histData = await histRes.json();
+            if (histData && histData.rates) {
+                var ratesMap = {};
+                for (var dateStr in histData.rates) {
+                    ratesMap[dateStr] = histData.rates[dateStr].ILS;
+                }
+                ctx.setHistoricalFX(ratesMap);
+                histLoaded = true;
             }
-            ctx.setHistoricalFX(ratesMap);
-        } else { ctx.setHistoricalFX({}); }
-    } catch (e) { ctx.setHistoricalFX({}); }
+        } catch (e) { /* try next proxy */ }
+    }
+    if (!histLoaded) { ctx.setHistoricalFX({}); }
 
     ctx.setLoading(false);
 };

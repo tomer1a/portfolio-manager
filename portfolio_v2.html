@@ -1172,7 +1172,7 @@
                                         <span className="font-semibold text-gray-200">מדד S&P 500</span>
                                     </div>
                                     <div className="flex items-center gap-4 sm:gap-6">
-                                        <span className="text-base sm:text-lg font-bold text-white">{currentSp500Index ? (currency === 'ILS' ? '₪' : '') + currentSp500Index.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
+                                        <span className="text-base sm:text-lg font-bold text-white">{currentSp500Index ? currentSp500Index.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</span>
                                         <div className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-sm font-bold ${sp500PercentDisplay >= 0 ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
                                             {sp500PercentDisplay >= 0 ? <IconTrendingUp /> : <IconTrendingDown />}
                                             {Math.abs(sp500PercentDisplay).toFixed(2) + '%'}
