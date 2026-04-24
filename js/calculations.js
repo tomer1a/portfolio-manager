@@ -65,12 +65,27 @@ window.calculateTotals = function (params) {
     var ytdValUSD  = cash;
     var ytdValILS  = cash * ytdRate;
 
+    var todayStr = today.toISOString().split('T')[0];
     positions.forEach(function (pos) {
         var stats     = window.getPositionStats(pos);
         var prevPrice = (pos.previousClose !== undefined && pos.previousClose !== null)
             ? pos.previousClose : pos.currentPrice;
-        prevValUSD += stats.totalShares * prevPrice;
-        prevValILS += stats.totalShares * prevPrice * prevRate;
+
+        // Separate shares bought today from shares held before today.
+        // For today's purchases, yesterday's "value" should be the purchase cost
+        // (they weren't in the portfolio yesterday), not previousClose.
+        var sharesToday = 0;
+        var costToday = 0;
+        stats.transactions.forEach(function (t) {
+            if (t.date && t.date.substring(0, 10) === todayStr && t.shares > 0) {
+                sharesToday += t.shares;
+                costToday += t.shares * t.price;
+            }
+        });
+        var sharesBeforeToday = stats.totalShares - sharesToday;
+
+        prevValUSD += sharesBeforeToday * prevPrice + costToday;
+        prevValILS += sharesBeforeToday * prevPrice * prevRate + costToday * prevRate;
 
         var ytdP = pos.ytdPrice ? pos.ytdPrice : pos.currentPrice;
         ytdValUSD += stats.totalShares * ytdP;

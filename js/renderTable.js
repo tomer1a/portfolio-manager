@@ -129,8 +129,26 @@
                 var profit = value - cost;
                 var profitPct = cost > 0 ? (profit / cost) * 100 : 0;
                 var weight = totalPortValue > 0 ? ((value / totalPortValue) * 100).toFixed(1) : '0.0';
+                // Separate shares bought today from pre-existing shares
+                var todayStrM = (function () { var d = new Date(); return d.toISOString().split('T')[0]; })();
+                var sharesTodayM = 0, costTodayM = 0;
+                stats.transactions.forEach(function (t) {
+                    if (t.date && t.date.substring(0, 10) === todayStrM && t.shares > 0) {
+                        sharesTodayM += t.shares;
+                        costTodayM += t.shares * t.price;
+                    }
+                });
+                var avgBuyTodayM = sharesTodayM > 0 ? costTodayM / sharesTodayM : 0;
+                var sharesBeforeTodayM = stats.totalShares - sharesTodayM;
+
                 var dailyPct = pos.dailyChangePercent;
-                var dailyVal = pos.dailyChange !== undefined && pos.dailyChange !== null ? pos.dailyChange * stats.totalShares * rateNow : null;
+                var dailyVal = null;
+                if (pos.dailyChange !== undefined && pos.dailyChange !== null) {
+                    dailyVal = pos.dailyChange * sharesBeforeTodayM * rateNow;
+                    if (sharesTodayM > 0) dailyVal += (pos.currentPrice - avgBuyTodayM) * sharesTodayM * rateNow;
+                    var prevValM = sharesBeforeTodayM * (pos.previousClose || pos.currentPrice) + sharesTodayM * avgBuyTodayM;
+                    if (prevValM > 0) dailyPct = ((stats.totalShares * pos.currentPrice - prevValM) / prevValM) * 100;
+                }
 
                 // In ILS mode, recalculate daily % to include FX movement
                 if (ctx.currency === 'ILS' && pos.previousClose && pos.previousClose > 0) {
@@ -139,8 +157,10 @@
                     var prevFxRate = ctx.getRateAtDate(yStr, ctx.exchangeRate);
                     var valTodayILS = pos.currentPrice * ctx.exchangeRate;
                     var valYesterdayILS = pos.previousClose * prevFxRate;
-                    dailyPct = ((valTodayILS - valYesterdayILS) / valYesterdayILS) * 100;
-                    dailyVal = (valTodayILS - valYesterdayILS) * stats.totalShares;
+                    dailyVal = (valTodayILS - valYesterdayILS) * sharesBeforeTodayM;
+                    if (sharesTodayM > 0) dailyVal += (pos.currentPrice * ctx.exchangeRate - avgBuyTodayM * prevFxRate) * sharesTodayM;
+                    var blendedPrevM = sharesBeforeTodayM * valYesterdayILS + sharesTodayM * avgBuyTodayM * prevFxRate;
+                    if (blendedPrevM > 0) dailyPct = ((stats.totalShares * valTodayILS - blendedPrevM) / blendedPrevM) * 100;
                 }
 
                 var isEditing = ctx.editingStockId === pos.id;
@@ -296,16 +316,47 @@
         var fm = ctx.formatMoney;
 
         // Compute daily change values (ILS-aware)
+        // For shares bought today, daily change = currentPrice - purchasePrice (not previousClose)
+        var todayStr = (function () { var d = new Date(); return d.toISOString().split('T')[0]; })();
+        var sharesToday = 0;
+        var costTodayPerShare = 0;
+        stats.transactions.forEach(function (t) {
+            if (t.date && t.date.substring(0, 10) === todayStr && t.shares > 0) {
+                sharesToday += t.shares;
+                costTodayPerShare += t.shares * t.price;
+            }
+        });
+        if (sharesToday > 0) costTodayPerShare = costTodayPerShare / sharesToday;
+        var sharesBeforeToday = stats.totalShares - sharesToday;
+
         var dailyPct = pos.dailyChangePercent;
-        var dailyVal = pos.dailyChange !== undefined && pos.dailyChange !== null ? pos.dailyChange * stats.totalShares * rateNow : null;
+        var dailyVal = null;
+        if (pos.dailyChange !== undefined && pos.dailyChange !== null) {
+            // dailyChange per share = currentPrice - previousClose
+            dailyVal = pos.dailyChange * sharesBeforeToday * rateNow;
+            // For today's purchases: change = currentPrice - buyPrice
+            if (sharesToday > 0) {
+                dailyVal += (pos.currentPrice - costTodayPerShare) * sharesToday * rateNow;
+            }
+            // Recalculate percentage based on blended previous value
+            if (sharesBeforeToday > 0 || sharesToday > 0) {
+                var prevVal = sharesBeforeToday * (pos.previousClose || pos.currentPrice) + sharesToday * costTodayPerShare;
+                if (prevVal > 0) dailyPct = ((stats.totalShares * pos.currentPrice - prevVal) / prevVal) * 100;
+            }
+        }
         if (ctx.currency === 'ILS' && pos.previousClose && pos.previousClose > 0) {
             var yd = new Date(); yd.setDate(yd.getDate() - 1);
             var yStr = yd.getFullYear() + '-' + String(yd.getMonth() + 1).padStart(2, '0') + '-' + String(yd.getDate()).padStart(2, '0');
             var prevFxRate = ctx.getRateAtDate(yStr, ctx.exchangeRate);
             var valTodayILS = pos.currentPrice * ctx.exchangeRate;
             var valYesterdayILS = pos.previousClose * prevFxRate;
-            dailyPct = ((valTodayILS - valYesterdayILS) / valYesterdayILS) * 100;
-            dailyVal = (valTodayILS - valYesterdayILS) * stats.totalShares;
+            // Blend: pre-today shares use previousClose, today's shares use buy price
+            dailyVal = (valTodayILS - valYesterdayILS) * sharesBeforeToday;
+            if (sharesToday > 0) {
+                dailyVal += (pos.currentPrice * ctx.exchangeRate - costTodayPerShare * prevFxRate) * sharesToday;
+            }
+            var blendedPrevILS = sharesBeforeToday * valYesterdayILS + sharesToday * costTodayPerShare * prevFxRate;
+            if (blendedPrevILS > 0) dailyPct = ((stats.totalShares * valTodayILS - blendedPrevILS) / blendedPrevILS) * 100;
         }
 
         return React.createElement(React.Fragment, { key: pos.id },
@@ -473,6 +524,7 @@
             prevFxRate = ctx.getRateAtDate(yStr2, ctx.exchangeRate);
         }
 
+        var todayStr2 = (function () { var d = new Date(); return d.toISOString().split('T')[0]; })();
         ctx.positions.forEach(function (pos) {
             var stats = ctx.getPositionStats(pos);
             var rateAtPurchase = ctx.currency === 'ILS' ? ctx.getRateAtDate(stats.earliestDate, ctx.exchangeRate) : 1;
@@ -481,10 +533,24 @@
             totalValue += value;
             totalCost += cost;
             totalProfit += (value - cost);
+
+            // Separate shares bought today from pre-existing shares
+            var sTod = 0, cTod = 0;
+            stats.transactions.forEach(function (t) {
+                if (t.date && t.date.substring(0, 10) === todayStr2 && t.shares > 0) {
+                    sTod += t.shares;
+                    cTod += t.shares * t.price;
+                }
+            });
+            var sBefore = stats.totalShares - sTod;
+            var avgBuyToday = sTod > 0 ? cTod / sTod : 0;
+
             if (ctx.currency === 'ILS' && pos.previousClose && pos.previousClose > 0) {
-                totalDailyChange += (pos.currentPrice * ctx.exchangeRate - pos.previousClose * prevFxRate) * stats.totalShares;
+                totalDailyChange += (pos.currentPrice * ctx.exchangeRate - pos.previousClose * prevFxRate) * sBefore;
+                if (sTod > 0) totalDailyChange += (pos.currentPrice * ctx.exchangeRate - avgBuyToday * prevFxRate) * sTod;
             } else if (pos.dailyChange !== undefined && pos.dailyChange !== null) {
-                totalDailyChange += pos.dailyChange * stats.totalShares * rateNow;
+                totalDailyChange += pos.dailyChange * sBefore * rateNow;
+                if (sTod > 0) totalDailyChange += (pos.currentPrice - avgBuyToday) * sTod * rateNow;
             }
         });
 
