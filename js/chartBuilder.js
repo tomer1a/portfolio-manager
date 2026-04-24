@@ -98,12 +98,12 @@ window.buildChartData = function (params) {
             var swk = spyHistoricalData[sk];
             var sDaysIn = (earliestDate.getTime() - spIdxLookup.getTime()) / 86400000;
             var sProg = Math.min(1, Math.max(0, sDaysIn / 7));
-            startSp500Index = swk.open + (swk.close - swk.open) * sProg;
+            startSp500Index = (swk.open + (swk.close - swk.open) * sProg) * 10;
             break;
         }
         spIdxLookup.setDate(spIdxLookup.getDate() - 1);
     }
-    if (startSp500Index === null) startSp500Index = 4000; // fallback
+    if (startSp500Index === null) startSp500Index = 5700; // fallback
 
     // The FX rate at portfolio inception — used as the denominator for S&P ILS
     // returns.  Mirrors the portfolio cost-basis logic: prefer the user-supplied
