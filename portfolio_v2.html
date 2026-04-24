@@ -660,6 +660,7 @@
                             .filter(d => d.value > 0);
                         const cashValue = (cash || 0) * rateNow;
                         if (cashValue > 0) pieData.push({ name: 'Cash', value: parseFloat(cashValue.toFixed(2)), shares: 0 });
+                        pieData.sort((a, b) => b.value - a.value);
                         const totalValue = pieData.reduce((s, d) => s + d.value, 0);
 
                         const PieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
