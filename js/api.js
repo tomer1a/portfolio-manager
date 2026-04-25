@@ -151,6 +151,312 @@ window.importFromAnonymousUser = async function (ctx, anonymousUid) {
 };
 
 /**
+ * Fetch the most recent daily snapshot and reconstruct a portfolio-data shape
+ * from it. Snapshots only store {symbol, price, shares} per position plus cash,
+ * so transactions, dividends, deposits, rates, and initialInvestment cannot be
+ * recovered — each position gets a single synthetic transaction dated to the
+ * snapshot date so downstream math stays consistent.
+ * @returns {Promise<{data: Object, date: string} | null>}
+ */
+window.loadLatestSnapshotFallback = async function (ctx, appId) {
+    try {
+        var snapsRef = ctx.dbInstance.collection('artifacts').doc(appId)
+            .collection('users').doc(ctx.user.uid).collection('portfolio')
+            .doc('snapshots').collection('daily');
+        var query = await snapsRef.get();
+        if (query.empty) return null;
+
+        var docs = query.docs.slice().sort(function (a, b) {
+            return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+        });
+        var doc = docs[0];
+        var raw = doc.data();
+        var snap = await window.decryptSnapshot(ctx.user.uid, raw);
+        if (!snap || !Array.isArray(snap.positions)) return null;
+
+        var date = snap.date || doc.id;
+        var reconstructed = {
+            positions: snap.positions.map(function (p, idx) {
+                var pid = 'snap_' + date + '_' + idx;
+                return {
+                    id: pid,
+                    symbol: p.symbol,
+                    currentPrice: p.price || 0,
+                    transactions: [{ id: 't_' + pid, shares: p.shares || 0, price: p.price || 0, date: date }],
+                    dividends: []
+                };
+            }),
+            cash: snap.cash || 0
+        };
+        return { data: reconstructed, date: date };
+    } catch (e) {
+        console.error('Snapshot fallback failed:', e);
+        return null;
+    }
+};
+
+/**
+ * Compute the YYYY-MM-DD of the Monday of the week containing `date`.
+ * Used as the doc ID for weekly main backups so we keep one per week.
+ */
+function getMondayOfWeek(date) {
+    var d = new Date(date);
+    var day = d.getDay(); // 0 = Sunday
+    var diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    d.setHours(0, 0, 0, 0);
+    return d.toISOString().split('T')[0];
+}
+
+/**
+ * Try to load and decrypt the most recent weekly backup of `main`.
+ * Backups are full faithful copies of the encrypted main document, so
+ * unlike the snapshot fallback this returns complete data (transactions,
+ * deposits, rates — everything).
+ * @returns {Promise<{data: Object, weekKey: string} | null>}
+ */
+window.loadLatestBackupFallback = async function (ctx, appId) {
+    try {
+        var backupsRef = ctx.dbInstance.collection('artifacts').doc(appId)
+            .collection('users').doc(ctx.user.uid).collection('portfolio')
+            .doc('backups').collection('weekly');
+        var query = await backupsRef.get();
+        if (query.empty) return null;
+
+        var docs = query.docs.slice().sort(function (a, b) {
+            return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+        });
+
+        // Walk newest → oldest, return the first one that decrypts cleanly
+        for (var i = 0; i < docs.length; i++) {
+            try {
+                var raw = docs[i].data();
+                var decrypted = await window.decryptPortfolioData(ctx.user.uid, raw);
+                return { data: decrypted, weekKey: docs[i].id };
+            } catch (e) {
+                console.warn('Backup ' + docs[i].id + ' failed to decrypt, trying older:', e);
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error('Backup fallback failed:', e);
+        return null;
+    }
+};
+
+/**
+ * Manually restore `main` from the latest valid weekly backup.
+ * Run from console: await window.restoreMainFromLatestBackup()
+ * Pass { commit: true } to actually overwrite main; default is dry-run preview.
+ */
+window.restoreMainFromLatestBackup = async function (opts) {
+    opts = opts || {};
+    var commit = opts.commit === true;
+    var auth = window.firebase.auth();
+    var db = window.firebase.firestore();
+    var user = auth.currentUser;
+    if (!user) throw new Error('Not logged in');
+    var appId = window.__app_id || 'default-app-id';
+
+    var fallback = await window.loadLatestBackupFallback({ user: user, dbInstance: db }, appId);
+    if (!fallback) throw new Error('No weekly backups available');
+
+    if (commit) {
+        var encrypted = await window.encryptPortfolioData(user.uid, fallback.data);
+        await db.collection('artifacts').doc(appId).collection('users').doc(user.uid)
+            .collection('portfolio').doc('main').set(encrypted, { merge: false });
+        console.log('main restored from backup', fallback.weekKey, '— reload the app.');
+    } else {
+        console.log('Dry-run. Pass { commit: true } to overwrite main.');
+    }
+    return { commit: commit, weekKey: fallback.weekKey, preview: fallback.data };
+};
+
+/**
+ * Rebuild the `main` portfolio document from the full snapshot history.
+ * Walks every daily snapshot in date order and infers transactions from
+ * share-count deltas (FIFO for sells), and infers cashDeposits from cash
+ * deltas that aren't explained by trading activity.
+ *
+ * Lossy by nature — see caveats in the returned summary. Dry-run by default.
+ *
+ * Usage from console:
+ *   await window.rebuildMainFromSnapshots()                 // dry-run, returns preview
+ *   await window.rebuildMainFromSnapshots({ commit: true }) // writes to main
+ *
+ * @param {Object} [opts]
+ * @param {boolean} [opts.commit=false] - if true, encrypts and writes to main
+ * @returns {Promise<Object>} preview/summary object
+ */
+window.rebuildMainFromSnapshots = async function (opts) {
+    opts = opts || {};
+    var commit = opts.commit === true;
+
+    var auth = window.firebase.auth();
+    var db = window.firebase.firestore();
+    var user = auth.currentUser;
+    if (!user) throw new Error('Not logged in');
+
+    var appId = window.__app_id || 'default-app-id';
+    var uid = user.uid;
+    var basePath = db.collection('artifacts').doc(appId)
+        .collection('users').doc(uid).collection('portfolio');
+
+    var snapsQuery = await basePath.doc('snapshots').collection('daily').get();
+    if (snapsQuery.empty) throw new Error('No snapshots found — nothing to rebuild from');
+
+    // Decrypt and sort by date ascending
+    var snaps = [];
+    for (var i = 0; i < snapsQuery.docs.length; i++) {
+        var d = snapsQuery.docs[i];
+        var raw = d.data();
+        var dec = await window.decryptSnapshot(uid, raw);
+        if (!dec || !Array.isArray(dec.positions)) continue;
+        snaps.push({ id: d.id, date: dec.date || d.id, cash: typeof dec.cash === 'number' ? dec.cash : 0, positions: dec.positions });
+    }
+    snaps.sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+    if (snaps.length === 0) throw new Error('Snapshots present but none could be decrypted');
+
+    var lotsBySymbol = {};        // symbol -> [{id, shares, price, date}]
+    var lastPriceBySymbol = {};   // symbol -> latest seen price
+    var prevSharesBySymbol = {};  // symbol -> shares at previous snapshot
+    var cashDeposits = [];
+    var prevCash = 0;
+    var lotCounter = 0;
+    var depCounter = 0;
+    var warnings = [];
+
+    for (var s = 0; s < snaps.length; s++) {
+        var snap = snaps[s];
+        var curShares = {};
+        var curPrice = {};
+        snap.positions.forEach(function (p) {
+            if (!p.symbol) return;
+            curShares[p.symbol] = p.shares || 0;
+            curPrice[p.symbol] = p.price || 0;
+            lastPriceBySymbol[p.symbol] = p.price || lastPriceBySymbol[p.symbol] || 0;
+        });
+
+        // Union of symbols seen previously and now (so disappearance counts as sell-to-zero)
+        var symbols = {};
+        Object.keys(prevSharesBySymbol).forEach(function (k) { symbols[k] = true; });
+        Object.keys(curShares).forEach(function (k) { symbols[k] = true; });
+
+        var tradingCashChange = 0;
+        Object.keys(symbols).forEach(function (sym) {
+            var prev = prevSharesBySymbol[sym] || 0;
+            var curr = curShares[sym] || 0;
+            var delta = curr - prev;
+            if (delta === 0) return;
+
+            var price = curPrice[sym] || lastPriceBySymbol[sym] || 0;
+
+            if (delta > 0) {
+                lotCounter++;
+                if (!lotsBySymbol[sym]) lotsBySymbol[sym] = [];
+                lotsBySymbol[sym].push({
+                    id: 't_rebuild_' + lotCounter,
+                    shares: delta,
+                    price: price,
+                    date: snap.date
+                });
+                tradingCashChange -= delta * price; // buy reduces cash
+            } else {
+                var toReduce = -delta;
+                var lots = lotsBySymbol[sym] || [];
+                // FIFO: drain oldest lots first
+                while (toReduce > 0 && lots.length > 0) {
+                    var lot = lots[0];
+                    if (lot.shares <= toReduce + 1e-9) {
+                        toReduce -= lot.shares;
+                        lots.shift();
+                    } else {
+                        lot.shares -= toReduce;
+                        toReduce = 0;
+                    }
+                }
+                if (toReduce > 1e-6) {
+                    warnings.push('Sell of ' + (-delta) + ' ' + sym + ' on ' + snap.date + ' exceeded known lots by ' + toReduce);
+                }
+                tradingCashChange += (-delta) * price; // sell adds cash
+            }
+        });
+
+        var actualCashDelta = snap.cash - prevCash;
+        var unexplained = actualCashDelta - tradingCashChange;
+        if (Math.abs(unexplained) > 0.01) {
+            depCounter++;
+            cashDeposits.push({
+                id: 'd_rebuild_' + depCounter,
+                date: snap.date,
+                amount: Math.round(unexplained * 100) / 100,
+                rate: null,
+                rateManual: false
+            });
+        }
+
+        prevSharesBySymbol = curShares;
+        prevCash = snap.cash;
+    }
+
+    // Build positions from remaining lots
+    var positions = [];
+    var posCounter = 0;
+    Object.keys(lotsBySymbol).forEach(function (sym) {
+        var lots = lotsBySymbol[sym];
+        if (!lots || lots.length === 0) return;
+        posCounter++;
+        positions.push({
+            id: 'p_rebuild_' + posCounter,
+            symbol: sym,
+            currentPrice: lastPriceBySymbol[sym] || 0,
+            transactions: lots,
+            dividends: []
+        });
+    });
+
+    var rebuilt = {
+        positions: positions,
+        cash: snaps[snaps.length - 1].cash,
+        cashDeposits: cashDeposits,
+        apiKey: '',
+        cashRate: null,
+        initialInvestment: null,
+        investmentRate: null
+    };
+
+    var summary = {
+        commit: commit,
+        snapshotCount: snaps.length,
+        dateRange: { from: snaps[0].date, to: snaps[snaps.length - 1].date },
+        positionCount: positions.length,
+        transactionCount: positions.reduce(function (n, p) { return n + p.transactions.length; }, 0),
+        depositCount: cashDeposits.length,
+        warnings: warnings,
+        caveats: [
+            'Buy prices use end-of-day snapshot price, not actual fill price',
+            'Multiple trades per day are merged into one transaction',
+            'Sells use FIFO and do not appear as transactions, only as lot reductions',
+            'Pre-first-snapshot holdings are dated to ' + snaps[0].date,
+            'Dividends, apiKey, cashRate, initialInvestment, investmentRate cannot be recovered',
+            'Stock splits may appear as phantom buys'
+        ],
+        preview: rebuilt
+    };
+
+    if (commit) {
+        var encrypted = await window.encryptPortfolioData(uid, rebuilt);
+        await basePath.doc('main').set(encrypted, { merge: false });
+        summary.committed = true;
+        console.log('Rebuilt main document written. Reload the app to see changes.');
+    } else {
+        console.log('Dry-run preview. Pass { commit: true } to write to main.');
+    }
+
+    return summary;
+};
+
+/**
  * Set up Firestore real-time listener for user portfolio data.
  * @param {Object} ctx - { user, dbInstance, normalizeSymbol, setPositions, setCash, setCashRate,
  *                         setInitialInvestment, setInvestmentRate, setCashDeposits, setApiKey,
@@ -176,9 +482,21 @@ window.setupCloudListener = function (ctx) {
                         data = await window.decryptPortfolioData(ctx.user.uid, rawData);
                     } catch (decErr) {
                         console.error('Decryption error:', decErr);
-                        ctx.setCloudError('Failed to decrypt portfolio data');
-                        ctx.setDbReady(true);
-                        return;
+                        var backup = await window.loadLatestBackupFallback(ctx, appId);
+                        if (backup) {
+                            data = backup.data;
+                            ctx.setCloudError('Main data unreadable — restored full backup from week of ' + backup.weekKey + '.');
+                        } else {
+                            var snapFallback = await window.loadLatestSnapshotFallback(ctx, appId);
+                            if (snapFallback) {
+                                data = snapFallback.data;
+                                ctx.setCloudError('Main data unreadable — loaded from snapshot ' + snapFallback.date + '. Transactions and deposit history are not restored.');
+                            } else {
+                                ctx.setCloudError('Failed to decrypt portfolio data');
+                                ctx.setDbReady(true);
+                                return;
+                            }
+                        }
                     }
                     if (data.positions) {
                         // Migration: convert flat positions to transactions format
@@ -320,6 +638,18 @@ window.savePortfolioToDb = async function (ctx, data) {
         };
         var encryptedSnapshot = await window.encryptSnapshot(ctx.user.uid, snapshotData);
         await userCol.doc('snapshots').collection('daily').doc(today).set(encryptedSnapshot);
+
+        // Weekly full backup of main — one per week, written on the first save of the week
+        try {
+            var weekKey = getMondayOfWeek(new Date());
+            var backupRef = userCol.doc('backups').collection('weekly').doc(weekKey);
+            var existing = await backupRef.get();
+            if (!existing.exists) {
+                await backupRef.set(encryptedData);
+            }
+        } catch (backupErr) {
+            console.warn('Weekly backup write failed (main was saved successfully):', backupErr);
+        }
     } catch (error) {
         console.error("Error saving data:", error);
     }

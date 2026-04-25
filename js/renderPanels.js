@@ -14,6 +14,87 @@
 (function () {
     var h = React.createElement;
 
+    // ---- Backup restore section (own component so React hooks work) ----
+    function BackupSection(props) {
+        var ctx = props.ctx;
+        var stateLatest = React.useState(null);
+        var latest = stateLatest[0], setLatest = stateLatest[1];
+        var stateLoading = React.useState(false);
+        var loading = stateLoading[0], setLoading = stateLoading[1];
+        var stateConfirm = React.useState(false);
+        var confirmRestore = stateConfirm[0], setConfirmRestore = stateConfirm[1];
+        var stateStatus = React.useState(null);
+        var status = stateStatus[0], setStatus = stateStatus[1];
+
+        var checkLatest = async function () {
+            setLoading(true); setStatus(null);
+            try {
+                var result = await window.loadLatestBackupFallback(
+                    { user: ctx.user, dbInstance: ctx.dbInstance },
+                    window.__app_id || 'default-app-id'
+                );
+                if (result) {
+                    setLatest({
+                        weekKey: result.weekKey,
+                        positions: (result.data && result.data.positions) ? result.data.positions.length : 0
+                    });
+                } else {
+                    setLatest({ empty: true });
+                }
+            } catch (e) {
+                setStatus({ ok: false, message: String((e && e.message) || e) });
+            }
+            setLoading(false);
+        };
+
+        var doRestore = async function () {
+            setLoading(true); setConfirmRestore(false);
+            try {
+                await window.restoreMainFromLatestBackup({ commit: true });
+                setStatus({ ok: true, message: 'הגיבוי שוחזר. הדף ייטען מחדש...' });
+                setTimeout(function () { window.location.reload(); }, 1200);
+            } catch (e) {
+                setStatus({ ok: false, message: String((e && e.message) || e) });
+                setLoading(false);
+            }
+        };
+
+        return h('div', { className: 'mt-4 border-t border-gray-700 pt-4' },
+            h('label', { className: 'block text-sm text-gray-400 mb-1' }, 'שחזור מגיבוי שבועי'),
+            h('p', { className: 'text-xs text-gray-500 mb-2' }, 'אם נתוני התיק נפגמו, שחזר מהגיבוי השבועי האחרון (גיבוי מלא — עסקאות, הפקדות, כל הנתונים).'),
+            h('div', { className: 'flex gap-2 items-center flex-wrap' },
+                h('button', {
+                    onClick: checkLatest,
+                    disabled: loading || !ctx.user,
+                    className: 'bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors text-sm whitespace-nowrap'
+                }, loading ? 'טוען...' : 'בדוק גיבוי אחרון'),
+                latest && !latest.empty && !confirmRestore && h('button', {
+                    onClick: function () { setConfirmRestore(true); },
+                    className: 'bg-yellow-600 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap'
+                }, 'שחזר'),
+                confirmRestore && h('div', { className: 'flex gap-1' },
+                    h('button', {
+                        onClick: doRestore,
+                        disabled: loading,
+                        className: 'bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white px-3 py-2 rounded-lg transition-colors text-sm font-medium whitespace-nowrap'
+                    }, loading ? 'משחזר...' : 'אשר שחזור'),
+                    h('button', {
+                        onClick: function () { setConfirmRestore(false); },
+                        className: 'bg-gray-700 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors text-sm'
+                    }, 'ביטול')
+                )
+            ),
+            latest && !latest.empty && h('p', { className: 'text-xs text-gray-400 mt-2' },
+                'גיבוי אחרון: ' + latest.weekKey + ' (' + latest.positions + ' פוזיציות)'),
+            latest && latest.empty && h('p', { className: 'text-xs text-yellow-400 mt-2' },
+                'אין גיבויים זמינים. הם נוצרים אוטומטית בשמירה הראשונה של כל שבוע.'),
+            confirmRestore && h('p', { className: 'text-xs text-yellow-400 mt-1' },
+                '⚠️ פעולה זו תדרוס את נתוני main הנוכחיים.'),
+            status && h('p', { className: 'text-xs mt-1 ' + (status.ok ? 'text-emerald-400' : 'text-red-400') },
+                (status.ok ? '✓' : '✗') + ' ' + status.message)
+        );
+    }
+
     // =====================================================================
     // Settings Panel
     // =====================================================================
@@ -106,7 +187,10 @@
                 ctx.importStatus && h('p', { className: 'text-xs mt-1 ' + (ctx.importStatus.ok ? 'text-emerald-400' : 'text-red-400') },
                     (ctx.importStatus.ok ? '✓' : '✗') + ' ' + ctx.importStatus.message
                 )
-            )
+            ),
+
+            // Restore from weekly backup
+            h(BackupSection, { ctx: ctx })
         );
     };
 
