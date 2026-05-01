@@ -361,11 +361,19 @@ window.buildChartData = function (params) {
             actualFinalValILS += stats.totalShares * p.currentPrice * exchangeRate;
         });
 
-        // Only update absolute values for tooltip display.
-        // Do NOT override portfolioPercent — the loop already computes correct
-        // last-point percent using pos.currentPrice.
+        // Overwrite absolute values AND percentages for the final point so that
+        // the chart's last-point number matches calculateTotals exactly.
+        // Previously only absoluteVal was updated, leaving the percent stale
+        // (the loop computes profit with cash cancelling out, while the summary
+        // card includes cash in the portfolio value).
         data[data.length - 1].absoluteValUSD = actualFinalValUSD;
         data[data.length - 1].absoluteValILS = actualFinalValILS;
+        data[data.length - 1].portfolioPercentUSD = globalBaseCostUSD > 0
+            ? parseFloat((((actualFinalValUSD / globalBaseCostUSD) - 1) * 100).toFixed(2))
+            : 0;
+        data[data.length - 1].portfolioPercentILS = globalBaseCostILS > 0
+            ? parseFloat((((actualFinalValILS / globalBaseCostILS) - 1) * 100).toFixed(2))
+            : 0;
 
         // Calibrate S&P 500 to the latest real-time quote
         if (spyData && spyData.current && lastRealSpyPrice) {
