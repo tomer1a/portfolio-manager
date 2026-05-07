@@ -338,7 +338,37 @@
             });
 
 
-            const { val: portfolioCurrentDisplay, profit: portfolioProfitDisplay, profitPercent: portfolioProfitPercentDisplay, dynCost, dynCostUSD, dailyProfit: portfolioDailyProfit, dailyProfitPercent: portfolioDailyProfitPercent, ytdProfit: portfolioYtdProfit, ytdProfitPercent: portfolioYtdProfitPercent, totalDividends: portfolioTotalDividends } = calculateTotals();
+            const totals = calculateTotals();
+            const { val: portfolioCurrentDisplay, profit: portfolioProfitDisplay, profitPercent: portfolioProfitPercentDisplay, dynCost, dynCostUSD, dailyProfit: portfolioDailyProfit, dailyProfitPercent: portfolioDailyProfitPercent, totalDividends: portfolioTotalDividends } = totals;
+
+            // Derive YTD profit from chart data for accuracy.
+            // The chart tracks the real portfolio composition at each point,
+            // so this matches the chart badge when set to YTD.
+            const ytdFromChart = useMemo(() => {
+                if (chartData.length === 0) return { profit: 0, percent: 0 };
+                const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+                const portKey = currency === 'ILS' ? 'portfolioPercentILS' : 'portfolioPercentUSD';
+                const valKey = currency === 'ILS' ? 'absoluteValILS' : 'absoluteValUSD';
+                // Find the chart point closest to Jan 1st
+                let ytdPoint = null;
+                for (let i = 0; i < chartData.length; i++) {
+                    if (chartData[i].timestamp >= yearStart) { ytdPoint = chartData[i]; break; }
+                }
+                if (!ytdPoint) ytdPoint = chartData[0];
+                const lastPoint = chartData[chartData.length - 1];
+                // Rebase: same formula as the chart badge (lines 776)
+                const basePercent = ytdPoint[portKey];
+                const lastPercent = lastPoint[portKey];
+                const rebasedPercent = (((1 + (lastPercent / 100)) / (1 + (basePercent / 100))) - 1) * 100;
+                // Compute dollar profit from absolute values
+                const ytdStartVal = ytdPoint[valKey];
+                const currentVal = lastPoint[valKey];
+                const profit = currentVal - ytdStartVal;
+                return { profit, percent: rebasedPercent };
+            }, [chartData, currency]);
+
+            const portfolioYtdProfit = chartData.length > 0 ? ytdFromChart.profit : totals.ytdProfit;
+            const portfolioYtdProfitPercent = chartData.length > 0 ? ytdFromChart.percent : totals.ytdProfitPercent;
 
             // S&P 500 Calculations for the Summary Card
             const sp500PercentDisplay = chartData.length > 0 ? (currency === 'ILS' ? chartData[chartData.length - 1].sp500PercentILS : chartData[chartData.length - 1].sp500PercentUSD) : 0;
