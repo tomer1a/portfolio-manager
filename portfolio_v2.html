@@ -616,6 +616,7 @@
                             <button
                                 onClick={() => {
                                     if (apiKey) {
+                                        window.fetchExchangeRates({ setExchangeRate, setHistoricalFX, setLoading: function(){} });
                                         setRefreshTrigger(prev => prev + 1);
                                     }
                                     else setShowSettings(true);

@@ -661,14 +661,42 @@ window.savePortfolioToDb = async function (ctx, data) {
  */
 window.fetchExchangeRates = async function (ctx) {
     var currentRate = 3.65;
-    try {
-        var fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
-        var fxData = await fxRes.json();
-        if (fxData && fxData.rates && fxData.rates.ILS) {
-            currentRate = fxData.rates.ILS;
-            ctx.setExchangeRate(currentRate);
-        }
-    } catch (e) { }
+    var rateFound = false;
+
+    // Try Yahoo Finance first for real-time rate (USDILS=X)
+    var yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/USDILS%3DX?range=1d&interval=1d';
+    var yahooProxies = [
+        '',
+        'https://corsproxy.io/?url=',
+        'https://api.allorigins.win/raw?url='
+    ];
+    for (var yi = 0; yi < yahooProxies.length && !rateFound; yi++) {
+        try {
+            var fullUrl = yahooProxies[yi] ? yahooProxies[yi] + encodeURIComponent(yahooUrl) : yahooUrl;
+            var yahooRes = await fetch(fullUrl);
+            if (yahooRes.ok) {
+                var yahooJson = await yahooRes.json();
+                var result = yahooJson && yahooJson.chart && yahooJson.chart.result && yahooJson.chart.result[0];
+                if (result && result.meta && result.meta.regularMarketPrice) {
+                    currentRate = result.meta.regularMarketPrice;
+                    ctx.setExchangeRate(currentRate);
+                    rateFound = true;
+                }
+            }
+        } catch (e) { /* try next proxy */ }
+    }
+
+    // Fallback to open.er-api.com (daily rates) if Yahoo failed
+    if (!rateFound) {
+        try {
+            var fxRes = await fetch('https://open.er-api.com/v6/latest/USD');
+            var fxData = await fxRes.json();
+            if (fxData && fxData.rates && fxData.rates.ILS) {
+                currentRate = fxData.rates.ILS;
+                ctx.setExchangeRate(currentRate);
+            }
+        } catch (e) { }
+    }
 
     var histUrl = 'https://api.frankfurter.app/2015-01-01..?from=USD&to=ILS';
     var histProxies = [
